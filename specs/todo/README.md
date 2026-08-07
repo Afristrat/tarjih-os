@@ -5,7 +5,7 @@ Total : 10 tâches, environ 32 heures estimées. Les estimations servent au déc
 | # | Titre | Priorité | Heures | Dépend | Statut |
 |---:|---|:---:|---:|---|:---:|
 | 01 | Initialiser l’application web | P0 | 2 | — | ✅ |
-| 02 | Créer le schéma multi-tenant et les RLS | P0 | 4 | 01 | ⬜ |
+| 02 | Créer le schéma multi-tenant et les RLS | P0 | 4 | 01 | ✅ |
 | 03 | Implémenter l’authentification et le tenant actif | P0 | 3 | 02 | ⬜ |
 | 04 | Administrer dimensions et autorisations | P0 | 4 | 03 | ⬜ |
 | 05 | Gérer versions et hypothèses budgétaires | P0 | 4 | 04 | ⬜ |

@@ -1,7 +1,7 @@
 ---
 task_id: 02
 title: Créer le schéma multi-tenant et les RLS
-status: pending
+status: completed
 priority: P0
 estimated_hours: 4
 prd_features: [Isolation multi-tenant et RBAC dimensionnel]
@@ -15,10 +15,10 @@ created: 2026-08-07
 
 ## Acceptance criteria
 
-- [ ] Une migration crée les tables V1, contraintes, fonctions privées et index.
-- [ ] RLS est activée sur chaque table exposée.
-- [ ] Les tests SQL prouvent l’isolation inter-tenant et le refus par défaut.
-- [ ] Audit et décisions ne peuvent être modifiés ou supprimés par un utilisateur applicatif.
+- [x] Une migration crée les tables V1, contraintes, fonctions privées et index.
+- [x] RLS est activée sur chaque table exposée.
+- [x] Les tests SQL prouvent l’isolation inter-tenant et le refus par défaut.
+- [x] Audit et décisions ne peuvent être modifiés ou supprimés par un utilisateur applicatif.
 
 ## Files
 

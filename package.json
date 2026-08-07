@@ -7,6 +7,10 @@
     "build": "npm --prefix apps/web run build",
     "lint": "npm --prefix apps/web run lint",
     "typecheck": "npm --prefix apps/web run typecheck",
-    "test": "npm --prefix apps/web test"
+    "test": "npm --prefix apps/web test",
+    "test:db": "node ./node_modules/supabase/dist/supabase.js test db supabase/tests --local"
+  },
+  "devDependencies": {
+    "supabase": "2.112.0"
   }
 }
