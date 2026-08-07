@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarjih-os.com/schemas/mission-output.schema.json",
+  "title": "Tarjih Mission Output Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "mission_id",
+    "run_id",
+    "authorization_context_id",
+    "input_snapshot_id",
+    "status",
+    "facts_used",
+    "computed_results_used",
+    "proposed_hypotheses",
+    "findings",
+    "recommendations",
+    "blocking_issues",
+    "required_human_reviews",
+    "next_operation"
+  ],
+  "properties": {
+    "contract_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "mission_id": {"type": "string", "pattern": "^M(0[1-9]|[12][0-9]|30)$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "authorization_context_id": {"type": "string", "minLength": 1},
+    "input_snapshot_id": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": [
+        "blocked",
+        "awaiting_human_validation",
+        "ready_for_deterministic_calculation",
+        "analysis_complete",
+        "human_review_required"
+      ]
+    },
+    "facts_used": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/traceableItem"}
+    },
+    "computed_results_used": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/computedResult"
+      }
+    },
+    "proposed_hypotheses": {
+      "type": "array",
+      "items": {"$ref": "hypothesis-proposal.schema.json"}
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/finding"}
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/recommendation"}
+    },
+    "blocking_issues": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "required_human_reviews": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "next_operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "requires_confirmation"],
+      "properties": {
+        "operation": {
+          "enum": [
+            "none",
+            "request_missing_data",
+            "request_hypothesis_validation",
+            "request_python_calculation",
+            "request_human_review",
+            "propose_action_plan"
+          ]
+        },
+        "requires_confirmation": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "traceableItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "value", "source_ref"],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "value": {},
+        "source_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "computedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id",
+        "value",
+        "source_ref",
+        "calculation_run_id",
+        "engine_version",
+        "result_hash"
+      ],
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "value": {},
+        "source_ref": {"type": "string", "minLength": 1},
+        "calculation_run_id": {"type": "string", "minLength": 1},
+        "engine_version": {"type": "string", "minLength": 1},
+        "result_hash": {"type": "string", "minLength": 1}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding_id", "statement", "classification", "supporting_refs", "confidence"],
+      "properties": {
+        "finding_id": {"type": "string", "minLength": 1},
+        "statement": {"type": "string", "minLength": 1},
+        "classification": {"enum": ["fact", "computed_result", "inference", "unknown"]},
+        "supporting_refs": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommendation_id",
+        "action",
+        "rationale_refs",
+        "owner_role_candidate",
+        "horizon",
+        "expected_effect",
+        "cost_or_effort",
+        "risks",
+        "leading_indicator",
+        "stop_condition",
+        "status"
+      ],
+      "properties": {
+        "recommendation_id": {"type": "string", "minLength": 1},
+        "action": {"type": "string", "minLength": 1},
+        "rationale_refs": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "owner_role_candidate": {"type": "string", "minLength": 1},
+        "horizon": {"type": "string", "minLength": 1},
+        "expected_effect": {"type": "string", "minLength": 1},
+        "cost_or_effort": {"type": "string", "minLength": 1},
+        "risks": {"type": "array", "items": {"type": "string"}},
+        "leading_indicator": {"type": "string", "minLength": 1},
+        "stop_condition": {"type": "string", "minLength": 1},
+        "status": {"const": "proposed"}
+      }
+    }
+  }
+}

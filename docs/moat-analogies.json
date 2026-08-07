@@ -1,0 +1,101 @@
+[
+  {
+    "name": "Evidence Grade for Assumptions",
+    "industry_source": "Médecine fondée sur les preuves — GRADE",
+    "mechanism": "La certitude des preuves et la force des recommandations sont évaluées séparément selon des critères explicites.",
+    "translation": "Chaque hypothèse financière reçoit un grade de preuve distinct de la recommandation qui en découle, avec motifs de déclassement, seuil décisionnel et revue humaine.",
+    "novelty": 4,
+    "feasibility": 4,
+    "moat_potential": 5
+  },
+  {
+    "name": "Assumption Reliability Passport",
+    "industry_source": "Aviation — calibration des évaluateurs et monitoring de vol",
+    "mechanism": "Les évaluateurs et performances sont calibrés sur des observations répétées et des écarts constatés.",
+    "translation": "La plateforme mesure dans le temps la fiabilité de chaque source, méthode, contributeur et catégorie d’hypothèse par rapport au réalisé, sans transformer le score en jugement individuel simpliste.",
+    "novelty": 5,
+    "feasibility": 3,
+    "moat_potential": 5
+  },
+  {
+    "name": "Financial Flight Recorder",
+    "industry_source": "Aviation — Flight Data Monitoring et débrief post-vol",
+    "mechanism": "Les paramètres d’une mission sont enregistrés puis revus après l’événement pour comprendre les décisions et améliorer les pratiques.",
+    "translation": "Chaque décision financière conserve hypothèses, preuves, versions, simulations, approbations, actions et résultats ; un débrief compare causalité attendue et gains observés.",
+    "novelty": 4,
+    "feasibility": 3,
+    "moat_potential": 5
+  },
+  {
+    "name": "Financial Early Warning Protocol",
+    "industry_source": "Médecine aiguë — NEWS2",
+    "mechanism": "Un score composite standardise la détection de détérioration et associe chaque seuil à une réponse précise.",
+    "translation": "Un score de détérioration financière multi-signal déclenche une procédure graduée : surveillance, investigation, arbitrage, plan de trésorerie ou escalade au DG/DAF.",
+    "novelty": 3,
+    "feasibility": 4,
+    "moat_potential": 4
+  },
+  {
+    "name": "Decision Time-Out and Check-Back",
+    "industry_source": "Chirurgie et aviation — time-out, CRM et repeat-back",
+    "mechanism": "Avant une action critique, l’équipe interrompt l’exécution, reformule l’intention, confirme le périmètre et autorise chacun à signaler une divergence.",
+    "translation": "Avant activation d’une hypothèse matérielle, le système affiche impact, preuves, contre-preuves, responsable et scénario ; l’approbateur reformule et confirme explicitement.",
+    "novelty": 4,
+    "feasibility": 4,
+    "moat_potential": 3
+  },
+  {
+    "name": "Business Risk Path Graph",
+    "industry_source": "Cybersécurité — attack graphs probabilistes",
+    "mechanism": "Les vulnérabilités ne sont pas seulement comptées ; leurs dépendances et chemins cumulés vers un dommage critique sont modélisés.",
+    "translation": "La plateforme représente les chemins causaux menant à une rupture de cash, un covenant, une chute de marge ou un échec stratégique, puis teste quelles actions coupent le plus de chemins au meilleur coût.",
+    "novelty": 4,
+    "feasibility": 3,
+    "moat_potential": 4
+  },
+  {
+    "name": "Ensemble Hypothesis Forecast",
+    "industry_source": "Météorologie — ensemble forecasting",
+    "mechanism": "Plusieurs prévisions issues de conditions ou modèles différents servent à quantifier l’incertitude par leur dispersion.",
+    "translation": "Une hypothèse importante est simulée depuis plusieurs méthodes et sources ; la divergence devient une mesure d’incertitude affichée au décideur au lieu d’être cachée dans un scénario central.",
+    "novelty": 3,
+    "feasibility": 3,
+    "moat_potential": 4
+  },
+  {
+    "name": "Hypothesis Branching and Merge",
+    "industry_source": "Ingénierie logicielle — gestion de versions Git",
+    "mechanism": "Des branches parallèles permettent d’explorer des changements, puis de fusionner explicitement ou résoudre les conflits.",
+    "translation": "Les équipes créent des branches d’hypothèses et de stratégies ; le DAF ou DG compare les impacts, détecte les conflits dimensionnels et fusionne une version budgétaire approuvée.",
+    "novelty": 3,
+    "feasibility": 3,
+    "moat_potential": 4
+  },
+  {
+    "name": "Financial Digital Twin Sandbox",
+    "industry_source": "Opérations spatiales — digital twin NASA",
+    "mechanism": "Une représentation synchronisée permet entraînement, opérations temps réel et analyses what-if avec humain dans la boucle.",
+    "translation": "Un jumeau financier et opérationnel rejoue des décisions sur les business models combinés et mesure P&L, bilan, cash, capacités, risques et plans d’action avant engagement.",
+    "novelty": 2,
+    "feasibility": 2,
+    "moat_potential": 4
+  },
+  {
+    "name": "Exception Resolution Room",
+    "industry_source": "Supply chain — control tower",
+    "mechanism": "Les événements critiques sont priorisés, contextualisés et traités dans des espaces collaboratifs avec playbooks de résolution.",
+    "translation": "Chaque alerte financière matérielle ouvre une salle de résolution contenant faits, propriétaires, scénarios, actions, dépendances et délai de décision, sous RBAC.",
+    "novelty": 3,
+    "feasibility": 3,
+    "moat_potential": 4
+  },
+  {
+    "name": "Assumption Warm Handoff",
+    "industry_source": "Médecine — handoff structuré",
+    "mechanism": "Le transfert porte simultanément sur information, autorité, responsabilités, actions attendues et compréhension du destinataire.",
+    "translation": "Lorsqu’une hypothèse passe du métier au DAF, le système transmet contexte, preuves, impact, action attendue et responsabilité ; le destinataire confirme sa compréhension avant approbation.",
+    "novelty": 4,
+    "feasibility": 4,
+    "moat_potential": 3
+  }
+]

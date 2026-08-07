@@ -1,0 +1,58 @@
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Node
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Next.js and build outputs
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Supabase local state
+.supabase/
+
+# Testing and coverage
+coverage/
+.nyc_output/
+htmlcov/
+.coverage
+
+# IDE and OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+
+# Logs and local agent state
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+specs/state.json
