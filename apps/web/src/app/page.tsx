@@ -1,6 +1,7 @@
 import { productPillars } from "@/lib/product";
+import type { ReactElement } from "react";
 
-export default function Home() {
+export default function Home(): ReactElement {
   return (
     <main>
       <header className="shell flex items-center justify-between py-7">
