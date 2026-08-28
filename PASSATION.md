@@ -4,6 +4,125 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-08-28 (suite) — Registre de migrations posé, task 05 close et prouvée en production
+
+```
+[ETAT]   master = **2d8d97e** poussé et vérifié (`fetch` + comparaison, hashes identiques), worktree vide.
+         Production sur l'image `21b4ed6` (`2d8d97e` est documentaire), `running:healthy`.
+         Supabase `running:healthy`, `OOMKilled=false`, 0 redémarrage, 238,8 Mio sur 4 Gio, aucune base jetable résiduelle.
+         Gates : typecheck 0 erreur, lint 0 erreur **0 warning**, **27 tests Node**, build OK, **52 contrôles pgTAP**
+         (13+4+14+21), 0 échec. Tasks 01→05 terminées. Reste 06→10.
+         Données de production : 1 cycle (clos), 1 version, 1 hypothèse approuvée, 1 décision, 26 événements d'audit.
+
+[FAIT]   **1. Le compte de recette est au coffre** (`TARJIH_ADMIN_TECHNIQUE`, `TARJIH_ADMIN_EMAIL`), identité prouvée
+         par comparaison `-ceq` dans un processus neuf **avant** suppression du fichier de scratchpad, qui n'existe plus.
+         Écart de procédure assumé : le presse-papier est **structurellement indisponible** depuis l'outil PowerShell de
+         Claude Code sur ce poste (`OpenClipboard` → `ERROR_ACCESS_DENIED`, aucune fenêtre propriétaire, thread pourtant
+         STA — la window station du processus n'en a pas). Le chemin nominal de SOP-001 est donc inapplicable ; repli par
+         `add-secret.ps1 -Value $variable`, valeur expansée au runtime depuis une lecture in-process, jamais dans le
+         transcript. Toutes les garanties du script sont identiques sur ce chemin.
+
+         **2. L'ALERTE « aucun registre de migrations » est fermée.** La table est celle de la CLI Supabase, **pas** un
+         registre maison : sa forme exacte a été relevée sur une autre base du même serveur réellement gérée par la CLI
+         (`version text` PK, `statements text[]`, `name text`), de sorte qu'un futur `supabase db push` retrouve son
+         registre. Elle vit dans `supabase/bootstrap/`, hors du flux des migrations — une migration ne peut pas créer la
+         table qui la recense. **Chaque migration s'inscrit désormais elle-même**, dans sa propre transaction : appliquer
+         sans inscrire est devenu impossible, cela ne repose plus sur la discipline de personne. Chaque rollback supprime
+         sa ligne. Pas de RLS dessus, volontairement : `anon`, `authenticated`, `authenticator` et même `service_role`
+         n'ont ni `usage` ni `select` — plus fermé qu'une RLS, et sans diverger de la primitive de la plateforme.
+         Le rattrapage des deux migrations antérieures s'est fait sur un constat **objet par objet** contre la production :
+         c'était le dernier moment où il pouvait se faire par lecture directe plutôt que de mémoire.
+
+         **3. Task 05 livrée en un lot complet.** L'architecture (`specs/_source/archi.md:109-111`) prescrit **trois**
+         écrans, pas un : `/app/budgets`, `/app/budgets/[versionId]`, `/app/hypotheses/[id]`. J'avais tranché pour un seul
+         avant d'ouvrir ce fichier — c'était le code qui déviait, pas l'archi. Les trois existent, plus la navigation :
+         le bandeau n'affichait de liens **qu'aux administrateurs**, tout membre en a désormais.
+
+         **4. Trou refermé dans la migration : une version publiée acceptait encore un INSERT.** Elle changeait donc de
+         contenu sans qu'aucune de ses lignes ne bouge. Le garde couvre maintenant les trois écritures ; la suppression
+         est fermée aussi, pour qu'un futur chemin `security definer` bute sur la même règle.
+
+         **5. Le chemin « un contributeur corrige son hypothèse » fonctionne**, et il est prouvé par une **écriture
+         concurrente réelle en production** : pendant que la page restait ouverte, une session `psql` distincte a fait
+         avancer la révision ; la correction fondée sur la lecture périmée a été refusée, la valeur concurrente préservée.
+
+         **6. Deux gardes automatiques sur la feuille de style.** Une classe utilisée sans définition, ou définie sans
+         usage, fait désormais échouer `npm test`. C'est la leçon des « 11 classes sur 12 » convertie en contrôle.
+
+         **7. Deux défauts de rendu mobile corrigés, de cause identique et à deux niveaux** : `grid-template-columns: 1fr`
+         vaut `minmax(auto, 1fr)`, donc la piste adopte la largeur min-content de son contenu — les 640 px du tableau —
+         et pousse la page hors de l'écran, sans que le `overflow-x` du conteneur puisse quoi que ce soit. Corrigé sur
+         `.console-layout` **et** sur `.console-panel`, qui est lui-même une grille. Profite aussi à l'écran de la task 04.
+
+         **8. `TARJIH_ADMIN_TECHNIQUE` exposée puis rotée dans la même heure.** Le snapshot d'accessibilité Playwright a
+         imprimé le mot de passe enregistré dans le profil du navigateur. Triage SOP-001 §8ter : E1 non, E2 douteux →
+         rotation immédiate. Nouvelle valeur posée en base, coffre remplacé, correspondance empreinte↔coffre prouvée
+         **en base** sans jamais réafficher la valeur. Registre `secrets-leaks.log` : ligne ouverte puis soldée.
+
+[ALERTE] **Un snapshot d'accessibilité Playwright imprime les mots de passe enregistrés du profil.** Ne jamais capturer
+         la page de connexion avec un profil qui a mémorisé des identifiants. C'est ainsi que la clé du coffre a fuité,
+         alors même que je m'apprêtais à ne pas la taper.
+
+         **Le cache fausse la mesure d'un correctif de style.** Un rendu mesuré juste après un déploiement peut porter la
+         feuille du build précédent — j'ai failli conclure qu'un correctif juste ne marchait pas. Toute vérification
+         visuelle post-déploiement passe par une URL qui casse le cache.
+
+         **Un approbateur ne peut pas savoir QUI a proposé.** `list_tenant_members` est verrouillée sur `is_tenant_admin` :
+         un DAF n'y voit rien. L'écran dit donc « par vous » ou « par un contributeur de la dimension », avec date, motif
+         et trace définitive — mais sans identité. Question **produit**, pas technique : ouvrir une résolution d'identité
+         bornée au périmètre de lecture élargit ce qu'un financier voit des personnes. Non tranché de ma seule initiative.
+
+         **Toujours aucun test Playwright versionné.** Le `CLAUDE.md` l'exige avant toute déclaration de complétude ;
+         la recette de ce jour a de nouveau été conduite à la main. L'écart est réel, assumé, et c'est la task 09.
+
+         **Les deux comptes `recette-*` ne sont pas supprimables** — la décision qu'ils ont produite est append-only,
+         l'hypothèse est retenue par elle, et l'hypothèse retient son auteur. Ils ont été rendus inertes (appartenance
+         suspendue, mot de passe remplacé par une valeur inconnue de tous, refus de connexion prouvé). Les effacer
+         exigerait de désactiver la garantie d'audit que la task 05 apporte.
+
+[BLOQUE] rien.
+
+[NEXT]   1) **Task 06 — moteur Python déterministe.** Elle ne dépend que de la 02 ; la 07 attend 05 **et** 06.
+         2) **Arbitrage d'Amine attendu** : faut-il qu'un approbateur voie l'identité de l'auteur d'une hypothèse ?
+            Coût si oui : une fonction `security definer` bornée aux utilisateurs apparaissant dans la trace d'une
+            hypothèse lisible, plus son contrôle pgTAP. Rien ne sera fait sans ce mot.
+         3) **Playwright avant la 09 ?** Le parcours vertical existe désormais et vient d'être joué à la main :
+            c'est le moment le moins cher pour l'écrire. À arbitrer.
+         4) Signalements **inter-projets** relevés dans `secrets-leaks.log`, lignes encore `consigné` et hors de ce
+            périmètre (règle n°6, non touchées) : `HERMES_WEBUI_PASSWORD` (2026-08-07), `HERMES_WEBUI_OIDC_CLIENT_SECRET`
+            (2026-08-13), `TRANSCRIBE_API_KEY` (2026-08-04), `CLOUDFLARED_TUNNEL_TOKEN` (2026-08-20). Aucune n'a
+            30 jours, mais la plus ancienne les atteint le 2026-09-03.
+         5) Tarjih reste **absent du tableau de `PASSATION-INDEX.md`** (il vit hors de `OneDrive\Projets`) — écriture
+            hors projet, donc signalée et non faite.
+
+[CTX]    Session `4fd50451`, 2026-08-28, CWD `c:\projets\Budget & CFO`. HEAD de référence `825d69c`, aucune autre session
+         déclarée, HEAD stable de bout en bout. SOP lues et appliquées : 003 (priorisation, §4bis surcomplexité),
+         001 (§8 rotation, §8bis variante B pour les comptes éphémères, §8ter triage d'un leak), 007 (mesure avant
+         affirmation sur la production), 011 (vérification déployée), 014 (déploiement Coolify), 019 (mise en scène
+         nommée, publication vérifiée par `fetch`). 5 commits : `845f4f7` (registre), `cd80a52` (task 05),
+         `f6dca81` et `21b4ed6` (débordement mobile, deux niveaux), `2d8d97e` (traçabilité).
+         Docker Desktop toujours indisponible sur le poste : les 52 contrôles pgTAP ont tourné dans deux bases jetables
+         du cluster de production (recette + témoin pour l'aller-retour), mémoire mesurée avant et après (238,6 → 250,3
+         puis retour à 238,8 Mio sur 4 Gio), bases supprimées et état d'origine reprouvé.
+         Captures de recette : scratchpad de session, 6 fichiers PNG (hors dépôt).
+
+[MEMO]   **Un test rouge n'est pas toujours un défaut du produit.** Le seul échec des 21 contrôles de la 05 venait de
+         moi : j'avais logé l'appel à `decide_hypothesis` dans le `where` de la requête qui vérifiait son effet, et
+         l'instantané de l'instruction précédait sa propre écriture. Lire le message avant d'accuser le code.
+
+         **Une correction qui « ne marche pas » peut être une mesure qui ment.** Deux fois ce jour la mesure a été
+         fausse — le cache après déploiement, l'instantané SQL — et une fois la mesure a eu raison contre mon
+         impression, en trouvant un débordement mobile que la capture d'écran ne montrait pas.
+
+         **La primitive de la plateforme bat le registre maison, mais seulement si on relève sa forme réelle.**
+         La table du registre n'a pas été reconstituée de mémoire ni de documentation : elle a été lue sur une base
+         voisine que la CLI avait réellement créée. C'est la différence entre réutiliser et imiter.
+
+         **Le geste qui devait éviter une exposition l'a provoquée.** J'ai créé des comptes éphémères précisément pour
+         ne pas taper la clé du coffre dans un navigateur — et c'est le premier snapshot de la page de connexion,
+         avant toute frappe, qui l'a imprimée depuis l'autofill. Le canal de fuite n'était pas celui que je surveillais.
+```
+
 ## 2026-08-28 — Tasks 03 et 04 closes et prouvées en production ; console d'administration refondue
 
 ```
