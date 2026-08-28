@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type ActiveTenantContext = {
   baseCurrency: string;
+  isTenantAdmin: boolean;
   name: string;
   role: TenantRole;
   tenantId: string;
@@ -61,7 +62,7 @@ export async function requireActiveTenant(): Promise<ActiveTenantContext> {
 
   const { data, error: membershipError } = await supabase
     .from("tenant_memberships")
-    .select("tenant_id, role, status, created_at")
+    .select("tenant_id, role, status, created_at, is_tenant_admin")
     .eq("user_id", user.id);
 
   if (membershipError) {
@@ -93,6 +94,7 @@ export async function requireActiveTenant(): Promise<ActiveTenantContext> {
 
   return {
     baseCurrency: tenant.baseCurrency,
+    isTenantAdmin: resolution.membership.isTenantAdmin,
     name: tenant.name,
     role: resolution.membership.role,
     tenantId: tenant.id,

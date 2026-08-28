@@ -6,6 +6,7 @@ export type TenantRole = (typeof TENANT_ROLES)[number];
 
 export type TenantMembership = {
   createdAt: string;
+  isTenantAdmin: boolean;
   role: TenantRole;
   status: "active" | "invited" | "suspended";
   tenantId: string;
@@ -52,6 +53,7 @@ export function normalizeMemberships(value: unknown): TenantMembership[] {
     return [
       {
         createdAt: row.created_at,
+        isTenantAdmin: row.is_tenant_admin === true,
         role: row.role,
         status: row.status,
         tenantId: row.tenant_id,
