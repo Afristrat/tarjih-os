@@ -217,8 +217,8 @@ export default async function DimensionsPage({
                 </form>
               ))}
 
-              <div className="grant-scroll">
-                <table className="grant-table">
+              <div className="table-scroll">
+                <table className="data-table">
                   <thead>
                     <tr>
                       <th scope="col">Dimension</th>
