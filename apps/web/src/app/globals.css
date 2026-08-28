@@ -609,6 +609,7 @@ h2 {
 }
 
 .console-form input,
+.console-form textarea,
 .console-form select {
   background: var(--raised);
   border: 1px solid var(--line);
@@ -624,6 +625,7 @@ h2 {
 }
 
 .console-form input:focus-visible,
+.console-form textarea:focus-visible,
 .console-form select:focus-visible {
   border-color: var(--deep);
   outline: 2px solid var(--deep);
@@ -658,20 +660,20 @@ h2 {
 /* `position: relative` n'est pas décoratif : le libellé masqué de la colonne
    d'action est en `position: absolute`. Sans bloc conteneur ici, il se place
    par rapport au document, échappe au clip et étire la page en largeur. */
-.grant-scroll {
+.table-scroll {
   border-block: 1px solid var(--line);
   overflow-x: auto;
   position: relative;
 }
 
-.grant-table {
+.data-table {
   border-collapse: collapse;
   font-size: 0.88rem;
   min-width: 640px;
   width: 100%;
 }
 
-.grant-table th {
+.data-table th {
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 700;
@@ -682,20 +684,20 @@ h2 {
   white-space: nowrap;
 }
 
-.grant-table thead tr {
+.data-table thead tr {
   border-bottom: 1px solid var(--line);
 }
 
-.grant-table tbody tr + tr {
+.data-table tbody tr + tr {
   border-top: 1px solid rgb(207 211 199 / 55%);
 }
 
-.grant-table td {
+.data-table td {
   padding: 12px 10px;
   vertical-align: middle;
 }
 
-.grant-table tbody tr:hover {
+.data-table tbody tr:hover {
   background: var(--raised);
 }
 
@@ -765,9 +767,141 @@ h2 {
   color: var(--ink);
 }
 
-.header-nav a[aria-current="page"] {
-  border-bottom-color: var(--accent);
+
+/* ---------------------------------------------------------------------------
+   Écrans budgétaires (task 05). Même échelle de travail que la console : rien
+   n'est réinventé ici, seulement ce que la matière budgétaire ajoute — un
+   chemin de retour, un état qui se lit avant le texte qui l'entoure, une fiche
+   de faits et une trace de décisions.
+--------------------------------------------------------------------------- */
+
+.console-back {
+  color: var(--muted);
+  display: inline-block;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+}
+
+.console-back:hover {
   color: var(--ink);
+}
+
+.console-form label[data-span="full"] {
+  grid-column: 1 / -1;
+}
+
+.console-form textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.state-tag {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.state-tag[data-tone="attente"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.state-tag[data-tone="acquis"] {
+  background: var(--active);
+  border-color: var(--deep);
+  color: var(--deep);
+}
+
+.state-tag[data-tone="refus"] {
+  border-color: #a4442f;
+  color: #a4442f;
+}
+
+.cycle-block + .cycle-block {
+  border-top: 1px solid var(--line);
+  margin-top: 30px;
+  padding-top: 30px;
+}
+
+.cycle-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+/* Les faits d'une hypothèse : deux colonnes tant que la place le permet, une
+   seule ensuite — un libellé et sa valeur ne se coupent jamais en deux. */
+.fact-list {
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+}
+
+.fact-list dt {
+  border-bottom: 1px solid rgb(207 211 199 / 55%);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 13px 10px 13px 0;
+  text-transform: uppercase;
+}
+
+.fact-list dd {
+  border-bottom: 1px solid rgb(207 211 199 / 55%);
+  font-size: 0.9rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 13px 0;
+}
+
+.trail {
+  display: grid;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.trail-entry {
+  border-left: 3px solid var(--line);
+  padding-left: 14px;
+}
+
+.trail-entry p {
+  font-size: 0.9rem;
+  margin: 6px 0 0;
+}
+
+.trail-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  gap: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 620px) {
+  .fact-list {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-list dt {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
 }
 
 @media (max-width: 900px) {

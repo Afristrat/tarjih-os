@@ -16,12 +16,16 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
           <p>{context.name} · {context.baseCurrency}</p>
         </div>
         <div className="user-block">
-          {canManageTenant(context) ? (
-            <nav className="header-nav">
-              <Link href="/app">Cockpit</Link>
+          {/* Un écran sans lien n'existe pas. La navigation porte donc tout ce
+              qui est atteignable : le budget pour tout membre, l'administration
+              pour ceux qui l'ont. */}
+          <nav className="header-nav">
+            <Link href="/app">Cockpit</Link>
+            <Link href="/app/budgets">Budget</Link>
+            {canManageTenant(context) ? (
               <Link href="/app/settings/dimensions">Administration</Link>
-            </nav>
-          ) : null}
+            ) : null}
+          </nav>
           <span>{context.userEmail}</span>
           <span className="role-badge">{roleLabel(context)}</span>
           <form action={logout}>
