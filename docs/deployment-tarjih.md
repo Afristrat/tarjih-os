@@ -21,9 +21,27 @@ Tarjih ne partage aucune base Supabase avec un autre produit. La pile vit dans l
 
 Le connecteur Cloudflare appartient au Compose Supabase Tarjih. Il rejoint uniquement le réseau Supabase dédié et le réseau d’ingress Coolify. Le jeton du tunnel reste dans un fichier serveur protégé en mode `0600` ; il n’est ni versionné ni exposé dans cette documentation.
 
+## Registre des migrations
+
+La base dit elle-même quelles migrations sont posées, dans `supabase_migrations.schema_migrations` :
+
+```bash
+docker exec supabase-db-f10v8td71bwii32blb9lalfk \
+  psql -U postgres -d postgres -c \
+  'select version, name from supabase_migrations.schema_migrations order by version;'
+```
+
+La table est celle de la CLI Supabase, pas un registre maison : `version text` clé primaire, `statements text[]`, `name text`. Sa forme a été relevée sur une base du même serveur réellement gérée par la CLI, de sorte qu’une reprise ultérieure en `supabase db push` retrouve son registre au lieu d’en découvrir un autre.
+
+Elle est créée par `supabase/bootstrap/migration_registry.sql`, qui n’est **pas** une migration et ne vit pas dans `supabase/migrations/` : une migration ne peut pas créer la table qui la recense. Le fichier est rejouable — une seconde application rend `INSERT 0 0`.
+
+Aucune RLS n’est posée dessus, volontairement : le schéma n’accorde `usage` à personne. `anon`, `authenticated`, `authenticator` et même `service_role` — qui contourne pourtant la RLS — n’ont ni `usage` sur le schéma ni `select` sur la table. La table est donc hors d’atteinte de l’API, quand une RLS ajoutée ici divergerait de la primitive de la plateforme et casserait une future commande de la CLI.
+
+Les deux premières migrations ont été appliquées avant l’existence du registre ; elles y ont été inscrites par le bootstrap, sur un constat établi **objet par objet** contre la production le 28 août 2026 (8 objets sur 8 pour `20260807195608`, 2 sur 2 pour `20260809090000`). Le registre a été posé à ce moment précis parce que c’était le dernier où ce constat pouvait encore se faire par lecture directe : passé une troisième migration à la main, le rattrapage se serait fait de mémoire.
+
 ## Appliquer une migration
 
-**Il n’existe aucun registre de migrations en base** : la table `supabase_migrations.schema_migrations` est absente, les migrations ayant été appliquées à la main et non par la CLI Supabase. Rien ne dit donc, depuis la base, quelles migrations sont posées : la vérification se fait objet par objet (colonne, fonction, politique). C’est une dette assumée, à refermer avant que le nombre de migrations rende le suivi manuel intenable.
+**Chaque migration s’inscrit elle-même au registre**, par un `insert … on conflict do nothing` en fin de fichier, exécuté dans la même transaction que le reste. Appliquer une migration sans l’inscrire devient donc impossible : cela ne repose plus sur la discipline de celui qui l’applique. Symétriquement, chaque retour arrière supprime sa ligne — un rollback qui la laisserait en place ferait mentir la seule source qui dise ce qui est posé.
 
 Toute migration s’applique **en une seule transaction** :
 
