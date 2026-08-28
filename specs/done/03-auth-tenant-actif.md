@@ -1,7 +1,7 @@
 ---
 task_id: 03
 title: Implémenter l’authentification et le tenant actif
-status: pending
+status: completed
 priority: P0
 estimated_hours: 3
 prd_features: [Isolation multi-tenant et RBAC dimensionnel]
@@ -15,10 +15,10 @@ created: 2026-08-07
 
 ## Acceptance criteria
 
-- [ ] Connexion et déconnexion fonctionnent avec Supabase SSR.
-- [ ] Toute page `/app` vérifie l’utilisateur côté serveur.
-- [ ] Le tenant actif provient des memberships autorisés, jamais d’un identifiant libre.
-- [ ] Les parcours non authentifié et membre suspendu sont testés.
+- [x] Connexion et déconnexion fonctionnent avec Supabase SSR.
+- [x] Toute page `/app` vérifie l’utilisateur côté serveur.
+- [x] Le tenant actif provient des memberships autorisés, jamais d’un identifiant libre.
+- [x] Les parcours non authentifié et membre suspendu sont testés.
 
 ## Files
 

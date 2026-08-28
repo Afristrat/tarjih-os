@@ -1,7 +1,7 @@
 ---
 task_id: 04
 title: Administrer dimensions et autorisations
-status: pending
+status: completed
 priority: P0
 estimated_hours: 4
 prd_features: [Isolation multi-tenant et RBAC dimensionnel]
@@ -15,10 +15,10 @@ created: 2026-08-07
 
 ## Acceptance criteria
 
-- [ ] L’administrateur crée une dimension et attribue des droits fins.
-- [ ] L’administrateur technique ne voit aucun chiffre sans grant financier.
-- [ ] La révocation prend effet à la prochaine requête.
-- [ ] Les mutations sont auditées.
+- [x] L’administrateur crée une dimension et attribue des droits fins.
+- [x] L’administrateur technique ne voit aucun chiffre sans grant financier.
+- [x] La révocation prend effet à la prochaine requête.
+- [x] Les mutations sont auditées.
 
 ## Files
 
