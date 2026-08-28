@@ -60,3 +60,8 @@ drop function private.is_tenant_admin(uuid);
 -- Le drapeau part en dernier : les membres promus par le seul booléen
 -- redeviennent de simples membres, ce qui est bien l’état d’avant.
 alter table public.tenant_memberships drop column is_tenant_admin;
+
+-- Le registre cesse d’affirmer que cette migration est posée : un retour arrière
+-- qui laisserait la ligne en place ferait mentir la seule source qui dise ce qui
+-- est appliqué.
+delete from supabase_migrations.schema_migrations where version = '20260809090000';
