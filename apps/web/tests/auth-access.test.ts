@@ -9,6 +9,7 @@ import {
 
 const ACTIVE_A: TenantMembership = {
   createdAt: "2026-01-01T00:00:00.000Z",
+  isTenantAdmin: false,
   role: "contributor",
   status: "active",
   tenantId: "tenant-a",
@@ -48,4 +49,19 @@ test("un tenant demandé est accepté uniquement lorsqu’il appartient au membr
 
 test("les lignes Supabase invalides ne deviennent jamais des autorisations", () => {
   assert.deepEqual(normalizeMemberships([{ tenant_id: "tenant-a", role: "super-admin" }]), []);
+});
+
+test("l’administration du tenant est indépendante du rôle financier", () => {
+  assert.deepEqual(
+    normalizeMemberships([
+      {
+        created_at: "2026-01-01T00:00:00.000Z",
+        is_tenant_admin: true,
+        role: "dg",
+        status: "active",
+        tenant_id: "tenant-a",
+      },
+    ]),
+    [{ ...ACTIVE_A, isTenantAdmin: true, role: "dg" }],
+  );
 });
