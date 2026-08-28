@@ -315,11 +315,13 @@ h2 {
   gap: 12px;
 }
 
+/* Le libellé porte désormais la double qualité (« Contributeur · Administration ») :
+   en capitales, il déborderait la pastille. */
 .role-badge {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 6px 10px;
-  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .text-button {
@@ -418,5 +420,356 @@ h2 {
 
   .user-block {
     margin-top: 20px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Console d'administration.
+
+   Les écrans éditoriaux montent jusqu'à 7,6rem de titre : c'est juste pour une
+   page d'accueil qui n'a qu'une phrase à dire, faux pour un écran de travail où
+   la matière est un tableau. Tout ce qui suit est donc cloisonné sous `.console`
+   et pose une échelle de travail, sans toucher aux pages existantes.
+   Aucune couleur nouvelle : uniquement deux surfaces dérivées des jetons.
+--------------------------------------------------------------------------- */
+
+.console {
+  --raised: #faf8f2;
+  --active: rgb(24 61 50 / 6%);
+  padding-block: 40px 80px;
+}
+
+.console h1 {
+  font-size: clamp(2rem, 3.4vw, 2.6rem);
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  margin-bottom: 10px;
+  max-width: none;
+}
+
+.console h2 {
+  font-size: 1.1rem;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  margin-bottom: 4px;
+  max-width: none;
+}
+
+.console-head {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 26px;
+}
+
+.console-head .lede {
+  font-size: 0.95rem;
+  max-width: 620px;
+}
+
+/* Message de statut : il doit se distinguer du corps, pas s'y fondre. */
+.console-notice {
+  align-items: baseline;
+  background: var(--raised);
+  border-left: 3px solid var(--accent);
+  display: flex;
+  font-size: 0.9rem;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 16px;
+}
+
+.console-notice[data-tone="refus"] {
+  border-left-color: #a4442f;
+}
+
+.console-layout {
+  align-items: start;
+  display: grid;
+  gap: clamp(28px, 4vw, 56px);
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  margin-top: 40px;
+}
+
+.console-aside {
+  display: grid;
+  gap: 26px;
+  position: sticky;
+  top: 28px;
+}
+
+.console-kicker {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+/* Liste des membres : une entrée par personne, jamais par couple. */
+.member-list {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.member-entry {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  display: block;
+  padding: 12px 14px;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.member-entry:hover {
+  background: var(--raised);
+}
+
+.member-entry[aria-current="true"] {
+  background: var(--active);
+  border-color: var(--line);
+}
+
+.member-entry strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.member-entry span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.74rem;
+  margin-top: 3px;
+}
+
+/* La portée : ce que la personne voit réellement, dit en clair. C'est la seule
+   information de cet écran qui ne se déduit pas des cases à cocher. */
+.member-scope {
+  color: var(--deep);
+  font-size: 0.74rem;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.member-scope[data-scope="aucune"] {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.member-scope[data-scope="totale"] {
+  color: var(--accent);
+}
+
+.console-panel {
+  display: grid;
+  gap: 34px;
+  min-width: 0;
+}
+
+.panel-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  justify-content: space-between;
+}
+
+.panel-head p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+/* Formulaire de création : libellé au-dessus du champ, jamais à côté. */
+.console-form {
+  align-items: end;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.console-form label {
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.console-form input,
+.console-form select {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  padding: 11px 12px;
+  text-transform: none;
+  width: 100%;
+}
+
+.console-form input:focus-visible,
+.console-form select:focus-visible {
+  border-color: var(--deep);
+  outline: 2px solid var(--deep);
+  outline-offset: 1px;
+}
+
+.console-button {
+  background: var(--deep);
+  border: 1px solid var(--deep);
+  border-radius: 3px;
+  color: var(--paper);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 11px 18px;
+}
+
+.console-button:hover {
+  background: #12302795;
+}
+
+.console-button[data-variant="discret"] {
+  background: transparent;
+  color: var(--deep);
+}
+
+.console-button[data-variant="discret"]:hover {
+  background: var(--active);
+}
+
+.grant-scroll {
+  border-block: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.grant-table {
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  min-width: 640px;
+  width: 100%;
+}
+
+.grant-table th {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 14px 10px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.grant-table thead tr {
+  border-bottom: 1px solid var(--line);
+}
+
+.grant-table tbody tr + tr {
+  border-top: 1px solid rgb(207 211 199 / 55%);
+}
+
+.grant-table td {
+  padding: 12px 10px;
+  vertical-align: middle;
+}
+
+.grant-table tbody tr:hover {
+  background: var(--raised);
+}
+
+.dimension-cell strong {
+  display: block;
+  font-weight: 600;
+}
+
+.dimension-cell span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+/* Une case cochable seule dans sa cellule : la colonne porte déjà le libellé,
+   qui reste accessible aux lecteurs d'écran. */
+.grant-cell {
+  text-align: center;
+  width: 92px;
+}
+
+.grant-cell input {
+  accent-color: var(--deep);
+  cursor: pointer;
+  height: 17px;
+  margin: 0;
+  width: 17px;
+}
+
+.grant-cell input:focus-visible {
+  outline: 2px solid var(--deep);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.console-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 30px 0;
+}
+
+.header-nav {
+  display: flex;
+  gap: 18px;
+}
+
+.header-nav a {
+  border-bottom: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding-bottom: 2px;
+}
+
+.header-nav a:hover {
+  color: var(--ink);
+}
+
+.header-nav a[aria-current="page"] {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .console-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .console-aside {
+    position: static;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .member-entry {
+    transition: none;
   }
 }

@@ -77,10 +77,12 @@ export async function saveDimensionGrant(formData: FormData): Promise<never> {
         .eq("user_id", userId)
         .eq("dimension_id", dimensionId);
 
+  // Le membre reste sélectionné après l'enregistrement : sans lui, l'écran
+  // reviendrait au premier de la liste et l'administrateur perdrait sa place.
   if (result.error) {
-    redirect("/app/settings/dimensions?error=grant-failed");
+    redirect(`/app/settings/dimensions?membre=${userId}&error=grant-failed`);
   }
 
   revalidatePath("/app/settings/dimensions");
-  redirect("/app/settings/dimensions?success=grant-saved");
+  redirect(`/app/settings/dimensions?membre=${userId}&success=grant-saved`);
 }

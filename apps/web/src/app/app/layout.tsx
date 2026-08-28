@@ -1,7 +1,9 @@
+import Link from "next/link";
 import type { ReactElement, ReactNode } from "react";
 
 import { logout } from "@/app/login/actions";
 import { requireActiveTenant } from "@/lib/auth/session";
+import { canManageTenant, roleLabel } from "@/lib/authorization/capabilities";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }): Promise<ReactElement> {
   const context = await requireActiveTenant();
@@ -14,8 +16,14 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
           <p>{context.name} · {context.baseCurrency}</p>
         </div>
         <div className="user-block">
+          {canManageTenant(context) ? (
+            <nav className="header-nav">
+              <Link href="/app">Cockpit</Link>
+              <Link href="/app/settings/dimensions">Administration</Link>
+            </nav>
+          ) : null}
           <span>{context.userEmail}</span>
-          <span className="role-badge">{context.role}</span>
+          <span className="role-badge">{roleLabel(context)}</span>
           <form action={logout}>
             <button className="text-button" type="submit">Se déconnecter</button>
           </form>
