@@ -563,9 +563,14 @@ h2 {
   color: var(--accent);
 }
 
+/* `minmax(0, 1fr)` sur une grille à colonne unique : sans lui, la piste
+   implicite vaut `auto` et se dimensionne sur le contenu le plus large — le
+   tableau de 640 px — que les enfants débordent alors hors du panneau, même
+   avec le `min-width: 0` ci-dessous, qui ne contraint que le panneau lui-même. */
 .console-panel {
   display: grid;
   gap: 34px;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 
@@ -878,9 +883,12 @@ h2 {
   padding-left: 14px;
 }
 
+/* Le motif d'une décision est saisi par un humain : une adresse collée sans
+   espace y est plausible, et rien d'autre ne la couperait. */
 .trail-entry p {
   font-size: 0.9rem;
   margin: 6px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .trail-meta {
