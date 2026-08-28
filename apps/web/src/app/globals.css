@@ -905,8 +905,14 @@ h2 {
 }
 
 @media (max-width: 900px) {
+  /* `minmax(0, 1fr)` et non `1fr` : une piste de grille vaut `minmax(auto, 1fr)`
+     par défaut, donc sa largeur minimale est celle du contenu le plus large. Le
+     tableau porte un `min-width` de 640 px pour rester lisible ; avec `1fr`,
+     cette largeur remonte jusqu'à la colonne et pousse la page entière hors de
+     l'écran, sans que le `overflow-x` du conteneur puisse quoi que ce soit —
+     c'est le conteneur lui-même qui est trop large. */
   .console-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .console-aside {
