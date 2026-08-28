@@ -56,3 +56,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 specs/state.json
+
+# Artefacts de recette navigateur (Playwright MCP)
+.playwright-mcp/
