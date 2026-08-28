@@ -7,8 +7,10 @@
 ## 2026-08-28 — Tasks 03 et 04 closes et prouvées en production ; console d'administration refondue
 
 ```
-[ETAT]   master = **0989ba8** poussé et vérifié (`git fetch` + comparaison `HEAD`/`origin/master`, hashes identiques).
-         Production sur l'image `0989ba8`, `running:healthy`. Supabase `running:healthy`, `OOMKilled=false`, 0 redémarrage.
+[ETAT]   master = **bd0086d** poussé et vérifié (`git fetch` + comparaison `HEAD`/`origin/master`, hashes identiques).
+         Production sur l'image `0989ba8` (dernier commit applicatif ; `bd0086d` est documentaire), `running:healthy`.
+         `/health` 200, `/app/settings/dimensions` 307 pour un visiteur. Supabase `running:healthy`,
+         `OOMKilled=false`, 0 redémarrage, PostgreSQL 226 Mio sur 4 Gio, aucune base jetable résiduelle.
          Gates : typecheck 0 erreur, lint 0 erreur **0 warning**, 11 tests Node, build OK, **31 contrôles pgTAP** (13+4+14), 0 échec.
          Tasks 01→04 terminées. Reste 05→10. Un lot task 05 non commité dort dans le worktree (voir [NEXT] 1).
 
@@ -56,6 +58,15 @@
          **8. Code mort supprimé** avant commit : `optionalText`, `canSeeConsolidation` (exportés, jamais appelés),
          et le warning lint préexistant sur `budgets/actions.ts`.
 
+         **9. Traçabilité rouverte.** Specs 03 et 04 déplacées en `specs/done/` (`status: completed`, critères cochés
+         seulement après preuve en production), statuts du `specs/todo/README.md` corrigés,
+         `docs/deployment-tarjih.md` réécrit avec la procédure d'application transactionnelle et les deux pièges
+         appris, et **ce fichier créé** — il n'existait pas. Le hook le retrouvera seul à la prochaine session : sa
+         branche « CWD hors Projets » remonte du CWD jusqu'à la racine du disque. Tarjih reste néanmoins **absent du
+         tableau de `PASSATION-INDEX.md`** (il vit hors de `OneDrive\Projets`) : non bloquant, mais il n'apparaîtra
+         pas dans la liste des dates inter-projets tant qu'Amine n'y aura pas ajouté la ligne — écriture hors projet,
+         donc signalée et non faite (règle n°6).
+
 [ALERTE] **Aucun registre de migrations en base.** `supabase_migrations.schema_migrations` n'existe pas : les
          migrations sont appliquées à la main, rien en base ne dit lesquelles sont posées. La vérification se fait
          objet par objet. Tenable à 2 migrations, ingérable à 10. À refermer avant la task 06.
@@ -87,8 +98,10 @@
          surcomplexité), 019 (mise en scène nommée, jamais `git add -A`, publication vérifiée par `fetch`),
          007 (mesure avant affirmation sur la production), 011 (vérification déployée), 014 (déploiement Coolify),
          001 §8ter (deux expositions de mot de passe consignées dans `~/.claude/secrets-leaks.log`, **rotation finale
-         effectuée**, les deux valeurs exposées sont mortes). 5 commits : `012ddff`, `cb1132f`, `943e11d`, `e62f767`,
-         `0989ba8`. Docker Desktop indisponible sur le poste (service non démarrable sans élévation) : les contrôles
+         effectuée**, les deux valeurs exposées sont mortes). 6 commits : `012ddff` (task 04), `cb1132f` (rollback),
+         `943e11d` (refonte console), `e62f767` (gouttières fantômes), `0989ba8` (débordement mobile + specs),
+         `bd0086d` (passation + doc de déploiement).
+         Docker Desktop indisponible sur le poste (service non démarrable sans élévation) : les contrôles
          pgTAP ont tourné dans une base jetable du cluster de production, sur arbitrage d'Amine, mémoire mesurée avant
          et après (pic 340 Mio sur 4 Gio), base supprimée et état d'origine reprouvé.
 
