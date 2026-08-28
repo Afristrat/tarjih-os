@@ -569,6 +569,14 @@ h2 {
   min-width: 0;
 }
 
+/* Un formulaire ne peut pas enjamber plusieurs cellules d'une même ligne : les
+   formulaires d'enregistrement vivent donc hors du tableau, et les cases s'y
+   rattachent par leur attribut `form`. Sans cette règle ils resteraient des
+   enfants de la grille — hauteur nulle, mais une gouttière chacun. */
+.console-panel > form {
+  display: none;
+}
+
 .panel-head {
   align-items: baseline;
   display: flex;
