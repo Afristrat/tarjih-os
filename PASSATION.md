@@ -7,7 +7,8 @@
 ## 2026-08-28 (suite) — Registre de migrations posé, task 05 close et prouvée en production
 
 ```
-[ETAT]   master = **2d8d97e** poussé et vérifié (`fetch` + comparaison, hashes identiques), worktree vide.
+[ETAT]   master = **70c2dc8** poussé et vérifié (`fetch` + comparaison, hashes identiques), worktree vide.
+         `70c2dc8` est ce fichier ; `2d8d97e` la traçabilité ; `21b4ed6` le dernier commit applicatif.
          Production sur l'image `21b4ed6` (`2d8d97e` est documentaire), `running:healthy`.
          Supabase `running:healthy`, `OOMKilled=false`, 0 redémarrage, 238,8 Mio sur 4 Gio, aucune base jetable résiduelle.
          Gates : typecheck 0 erreur, lint 0 erreur **0 warning**, **27 tests Node**, build OK, **52 contrôles pgTAP**
@@ -124,6 +125,12 @@
 ```
 
 ## 2026-08-28 — Tasks 03 et 04 closes et prouvées en production ; console d'administration refondue
+
+> **Entrée historique — ne pas agir sur ses `[ALERTE]` ni ses `[NEXT]`, tous soldés par l'entrée du dessus :**
+> l'absence de registre de migrations est fermée ; la task 05 est livrée, déployée et prouvée ; l'effet de bord
+> du déclencheur `row_version` sur le chemin contributeur est traité et prouvé par écriture concurrente réelle ;
+> le mot de passe du compte de recette est au coffre, puis rotaté. Reste vrai et toujours applicable : les pièges
+> GoTrue (jetons à la chaîne vide), l'écart Playwright, et l'absence de Tarjih dans `PASSATION-INDEX.md`.
 
 ```
 [ETAT]   master = **bd0086d** poussé et vérifié (`git fetch` + comparaison `HEAD`/`origin/master`, hashes identiques).
