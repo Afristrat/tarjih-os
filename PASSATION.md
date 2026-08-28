@@ -7,8 +7,10 @@
 ## 2026-08-28 (suite) — Registre de migrations posé, task 05 close et prouvée en production
 
 ```
-[ETAT]   master = **3e5912f** poussé et vérifié (`fetch` + comparaison, hashes identiques), worktree vide.
-         `3e5912f` et `70c2dc8` sont ce fichier ; `2d8d97e` la traçabilité ; `21b4ed6` le dernier commit applicatif.
+[ETAT]   master poussé et vérifié (`fetch` + comparaison `HEAD`/`origin/master`), worktree vide. Le hash de tête
+         n'est pas écrit ici : les derniers commits de la session sont documentaires et le font bouger à chaque
+         correction de ce fichier — `git log --oneline -1` fait foi. Le repère qui compte est le dernier commit
+         **applicatif**, `21b4ed6`, qui est l'image que la production exécute.
          Production sur l'image `21b4ed6` (`2d8d97e` est documentaire), `running:healthy`.
          Supabase `running:healthy`, `OOMKilled=false`, 0 redémarrage, 238,8 Mio sur 4 Gio, aucune base jetable résiduelle.
          Gates : typecheck 0 erreur, lint 0 erreur **0 warning**, **27 tests Node**, build OK, **52 contrôles pgTAP**
