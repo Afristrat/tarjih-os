@@ -655,9 +655,13 @@ h2 {
   background: var(--active);
 }
 
+/* `position: relative` n'est pas décoratif : le libellé masqué de la colonne
+   d'action est en `position: absolute`. Sans bloc conteneur ici, il se place
+   par rapport au document, échappe au clip et étire la page en largeur. */
 .grant-scroll {
   border-block: 1px solid var(--line);
   overflow-x: auto;
+  position: relative;
 }
 
 .grant-table {
