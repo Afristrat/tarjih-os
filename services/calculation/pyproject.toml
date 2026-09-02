@@ -1,0 +1,17 @@
+[project]
+name = "tarjih-calculation"
+version = "1.0.0"
+description = "Moteur de calcul deterministe de Tarjih : coeur pur, sans dependance externe."
+requires-python = ">=3.12"
+dependencies = []
+
+# Le coeur reste sans dependance : seule l'exposition HTTP en demande.
+[project.optional-dependencies]
+api = ["fastapi==0.115.6", "uvicorn[standard]==0.34.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tarjih_calculation"]
