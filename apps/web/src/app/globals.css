@@ -933,3 +933,44 @@ h2 {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Consolidation (task 07). Deux besoins que les écrans précédents n'avaient
+   pas : une colonne de montants qui s'aligne, et une empreinte de 64 caractères
+   qui doit rester lisible sans étirer la page.
+--------------------------------------------------------------------------- */
+
+/* Les chiffres s'alignent par la droite et sur une chasse fixe : deux montants
+   superposés se comparent alors d'un coup d'œil, ce que des glyphes de largeur
+   variable interdisent. */
+.amount-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.data-table tfoot tr {
+  border-top: 1px solid var(--line);
+}
+
+.data-table tfoot th {
+  color: var(--ink);
+  text-align: right;
+}
+
+/* Une empreinte n'a pas de coupure naturelle : sans `anywhere`, elle imposerait
+   sa largeur à toute la fiche. */
+.hash-value {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+/* Deux actions dans une même cellule : elles restent côte à côte tant que la
+   place le permet, et passent l'une sous l'autre plutôt que d'élargir la table. */
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

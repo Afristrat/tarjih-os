@@ -34,6 +34,36 @@ const BUDGET_NOTICES: Record<string, Notice> = {
   },
   "version-created": { text: "Version candidate créée. Les contributions peuvent commencer.", tone: "fait" },
   "version-creation-failed": { text: "La version n’a pas été créée.", tone: "refus" },
+  // Publication d'un calcul (task 07).
+  "calculation-empty": {
+    text: "Aucune hypothèse approuvée sur cette version : il n’y a rien à calculer. Faites approuver au moins une contribution.",
+    tone: "refus",
+  },
+  "calculation-forbidden": { text: "Seul un DAF ou un DG publie un calcul.", tone: "refus" },
+  "calculation-published": {
+    text: "Calcul publié. Les montants et leur empreinte sont désormais immuables.",
+    tone: "fait",
+  },
+  "calculation-refused": {
+    text: "Le moteur a refusé le calcul : les hypothèses ne forment pas un budget cohérent. Le détail est inscrit au journal, aucune valeur n’a été publiée.",
+    tone: "refus",
+  },
+  "calculation-reference-missing": {
+    text: "Le référentiel est incomplet : il faut au moins un compte, une période et une dimension avant de calculer.",
+    tone: "refus",
+  },
+  "calculation-unavailable": {
+    text: "Le service de calcul n’a pas répondu. Aucune valeur n’a été publiée ; réessayez.",
+    tone: "refus",
+  },
+  "calculation-version-published": {
+    text: "Cette version est déjà publiée : elle est immuable. Une correction passe par une version suivante.",
+    tone: "refus",
+  },
+  "calculation-write-failed": {
+    text: "Le calcul a abouti mais la publication a échoué. Rien n’a été écrit : l’opération est atomique.",
+    tone: "refus",
+  },
 };
 
 export function single(value: string | string[] | undefined): string | undefined {

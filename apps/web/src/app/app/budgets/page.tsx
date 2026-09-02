@@ -180,7 +180,7 @@ export default async function BudgetsPage({
                                 </span>
                               </td>
                               <td>{new Date(version.created_at).toLocaleDateString("fr-FR")}</td>
-                              <td>
+                              <td className="row-actions">
                                 <Link
                                   className="console-button"
                                   data-variant="discret"
@@ -188,6 +188,18 @@ export default async function BudgetsPage({
                                 >
                                   Ouvrir
                                 </Link>
+                                {/* La consolidation est réservée au DAF et au DG :
+                                    proposer le lien à un contributeur le mènerait
+                                    à une redirection, pas à un écran. */}
+                                {canManageFinance(context) ? (
+                                  <Link
+                                    className="console-button"
+                                    data-variant="discret"
+                                    href={`/app/consolidation/${version.id}`}
+                                  >
+                                    Consolidation
+                                  </Link>
+                                ) : null}
                               </td>
                             </tr>
                           ))}
