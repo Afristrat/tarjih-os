@@ -1,0 +1,42 @@
+# Déploiement du moteur de calcul.
+#
+# Un compose plutôt qu'un Dockerfile seul, pour une raison précise et vérifiée
+# sur le serveur : Coolify nomme le conteneur d'une application « Dockerfile »
+# `<uuid>-<horodatage>`, qui change à chaque déploiement et ne peut donc pas
+# servir d'adresse. Les services d'un compose, eux, reçoivent un alias réseau
+# égal à leur nom de service — stable d'un déploiement à l'autre. C'est ainsi
+# que les autres services du serveur s'adressent entre eux.
+#
+# L'application web joint donc le moteur sur `http://tarjih-calculation:8000`,
+# à l'intérieur du réseau Docker. Le moteur n'est pas exposé publiquement : il
+# n'a aucun domaine et ne publie aucun port sur l'hôte.
+
+services:
+  tarjih-calculation:
+    build:
+      # Le Dockerfile copie `services/calculation/...` : son contexte est donc
+      # la racine du dépôt, pas ce dossier.
+      context: ../..
+      dockerfile: services/calculation/Dockerfile
+    environment:
+      # Fournie par Coolify. Le service refuse tout appel sans elle (503), et
+      # rejette une clé erronée en 401.
+      - CALCULATION_SERVICE_TOKEN=${CALCULATION_SERVICE_TOKEN}
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      # `/health` ne consulte pas la clé de service : la sonde doit dire si le
+      # processus vit, pas si la configuration est bonne — sinon un jeton absent
+      # ferait redémarrer en boucle un conteneur parfaitement sain.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
