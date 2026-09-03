@@ -1,4 +1,8 @@
 import type { ActiveTenantContext } from "@/lib/auth/session";
+// Chemin relatif, et non l'alias `@/` : `npm test` exécute ce module tel quel,
+// sans le résolveur d'alias de Next. Un import de type survit à l'alias parce
+// qu'il est effacé à la compilation ; un import de valeur, non.
+import { readHypothesisFacts } from "./hypothesis-value.ts";
 
 export type DimensionPermission = "approve" | "contribute" | "export" | "read";
 
@@ -126,19 +130,16 @@ export function versionStatusTone(status: string): StateTone {
   return VERSION_TONES[status] ?? "attente";
 }
 
-function isDecimalValue(value: unknown): value is { type: "decimal"; value: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "type" in value &&
-    value.type === "decimal" &&
-    "value" in value &&
-    typeof value.value === "string"
-  );
-}
-
+/**
+ * Montant lisible d'une hypothèse, quelle que soit la forme de son `value`.
+ *
+ * La lecture est déléguée à `hypothesis-value`, qui connaît les formes du
+ * moteur ainsi que la forme historique restée en base. Le repli sur le JSON
+ * brut est conservé : une hypothèse d'une forme inattendue doit rester visible,
+ * pas disparaître de l'écran.
+ */
 export function formatHypothesisValue(value: unknown): string {
-  return isDecimalValue(value) ? value.value : (JSON.stringify(value) ?? "");
+  return readHypothesisFacts(value).amount ?? (JSON.stringify(value) ?? "");
 }
 
 // Le refus vient de la base, qui distingue ses cas par des SQLSTATE ; l'écran
