@@ -4,6 +4,68 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-03 — Une hypothèse dit enfin sur quoi elle porte ; écran Référentiel
+
+```
+[ETAT]   master poussé et vérifié (`HEAD` == `origin/master` == `63cc258`).
+         `tarjih-web` redéployé, conteneur `...-163218648735`, `running:healthy`.
+         `tarjih-calculation` `running:healthy` depuis 5 h, alias stable `tarjih-calculation`.
+         Gates : typecheck 0, lint 0, **30 tests Node**, build OK, 26 tests Python.
+         Vérifié déployé : `/app/settings/reference`, `/app/consolidation/[id]` et `/app/budgets`
+         rendent 307 vers `/login` (routes présentes et protégées) contre 404 sur une URL bidon ;
+         le NOUVEAU conteneur web joint le moteur sur `http://tarjih-calculation:8000/health`.
+
+[FAIT]   **1. Le défaut qui rendait tout le chemin inatteignable est corrigé.** Une hypothèse était
+         stockée en `{"type":"decimal","value":"1200.50"}` — qui ne nomme NI compte NI période. Aucune
+         hypothèse saisie dans l'interface n'était donc calculable, quoi que sachent faire la base et
+         le moteur. `value` porte désormais compte + période + chiffre, dans la forme que le moteur
+         valide déjà (`lib/budgets/hypothesis-value.ts`, partagé avec `resolvers.py` — les deux
+         évoluent ensemble).
+
+         **2. Pourquoi dans le jsonb et non en colonnes** : la forme dépend du modèle de calcul (un
+         inducteur porte volume + prix, un taux porte un compte de base). Deux colonnes ne les
+         couvriraient pas sans une foule de nuls.
+
+         **3. Le formulaire suit le modèle de la version**, lu en base et jamais soumis par le
+         formulaire : une hypothèse ne choisit pas comment sa version sera calculée. Corriger un
+         chiffre reconstruit la valeur autour des faits existants — ni contributeur ni approbateur ne
+         peut déplacer en silence une hypothèse vers un autre compte.
+
+         **4. La forme historique reste LUE et affichée**, mais signalée « non calculable — à
+         ressaisir » sur l'écran de version et sur la fiche. Nommer la coupable vaut mieux que laisser
+         le calcul échouer plus tard sans dire laquelle.
+
+         **5. Écran `/app/settings/reference`** (comptes et périodes) — il n'existait AUCUNE interface
+         pour eux, et un calcul refuse sans eux. Réservé DAF/DG, comme leur RLS le dit déjà.
+
+         **6. `decimalValue` supprimé** plutôt que laissé en export mort ; ses contrôles reportés sur
+         la valeur que le moteur sait lire (3 tests de plus).
+```
+
+### Piège du runner de tests
+
+`npm test` exécute les modules TS **sans le résolveur d'alias de Next**. Un `import type` via `@/`
+survit (il est effacé à la compilation), un **import de valeur non** : il casse le test avec
+`ERR_MODULE_NOT_FOUND`. Dans un module couvert par `npm test`, importer en relatif **avec l'extension
+`.ts`** (`./hypothesis-value.ts`) — Node en ESM l'exige.
+
+### Ce qui bloque maintenant, et ce n'est plus du code
+
+Pour voir Tarjih calculer, il faut **se connecter en DG ou DAF** : `a.mansouri@afriquestrategie.com`
+est le seul **DG actif**. `admin.technique@tarjih-os.com` (au coffre) est *contributeur +
+tenant_admin* : il ne peut NI créer comptes/périodes NI publier — la séparation est voulue
+(migration `separate_tenant_admin`). Les comptes `recette-*-05` sont suspendus.
+
+Puis, dans cet ordre : créer un compte et une période (Référentiel) → saisir une hypothèse (l'unique
+hypothèse approuvée en base est à l'ancienne forme, donc non calculable) → l'approuver → « Calculer
+et publier » sur la version.
+
+Reste ouvert : le jeu de FORMULES métier (`specs/_source/prd.md:138`, modèle économique pilote non
+tranché) et l'arrondi `ROUND_HALF_UP` marqué `ponytail:` dans `engine.py`.
+Tasks restantes : 08 (exports RBAC), 09 (parcours e2e), 10 (déploiement preview).
+
+---
+
 ## 2026-09-02 — Tasks 06 et 07 livrées et déployées : Tarjih calcule enfin
 
 ```
