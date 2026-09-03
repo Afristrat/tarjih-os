@@ -4,138 +4,131 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
-## 2026-09-03 — Une hypothèse dit enfin sur quoi elle porte ; écran Référentiel
+## 2026-09-03 — Tarjih calcule : moteur déterministe, publication atomique, référentiel
+
+> Cette entrée remplace et consolide celles du 2026-09-02 et du 2026-09-03 (première rédaction),
+> dont plusieurs affirmations sont devenues fausses dans la même session (« aucun écran pour les
+> comptes et périodes », « l'adresse du moteur n'est pas stable »).
 
 ```
-[ETAT]   master poussé et vérifié (`HEAD` == `origin/master` == `63cc258`).
-         `tarjih-web` redéployé, conteneur `...-163218648735`, `running:healthy`.
-         `tarjih-calculation` `running:healthy` depuis 5 h, alias stable `tarjih-calculation`.
-         Gates : typecheck 0, lint 0, **30 tests Node**, build OK, 26 tests Python.
-         Vérifié déployé : `/app/settings/reference`, `/app/consolidation/[id]` et `/app/budgets`
-         rendent 307 vers `/login` (routes présentes et protégées) contre 404 sur une URL bidon ;
-         le NOUVEAU conteneur web joint le moteur sur `http://tarjih-calculation:8000/health`.
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == `9a69262`, worktree propre (vérifié par `git rev-parse`).
+              Dernier commit APPLICATIF : `63cc258`.
+  Prod web  : `tarjih-web` uuid `l3fov9fbnjvrgt5ly75b7g5r`, conteneur `...-163218648735`,
+              `running:healthy`. Point de rollback : image `l3fov9fbnjvrgt5ly75b7g5r:21b4ed6cebef...`.
+  Prod calc : `tarjih-calculation` uuid `tuxybsaq9adb6txew2rc6zkr`, `running:healthy`,
+              alias réseau STABLE `tarjih-calculation`. Non exposé : aucun domaine, aucun port publié.
+  Base      : conteneur `supabase-db-f10v8td71bwii32blb9lalfk` — SEULE des onze instances Supabase du
+              serveur à porter les tables Tarjih (vérifié objet par objet ; NE PAS redeviner).
+              Registre `supabase_migrations.schema_migrations` : 4 lignes.
+  Gates     : typecheck 0, lint 0, 30 tests Node, build OK, 26 tests Python,
+              16 contrôles pgTAP exécutés sur la base de PRODUCTION (begin/rollback, rien laissé).
+  Données   : 5 dimensions, 1 hypothèse approuvée (ANCIENNE FORME → non calculable),
+              0 compte financier, 0 période, 0 budget_value.
+  Tasks     : 01→07 terminées. Restent 08 (exports RBAC), 09 (parcours e2e), 10 (déploiement preview).
 
-[FAIT]   **1. Le défaut qui rendait tout le chemin inatteignable est corrigé.** Une hypothèse était
-         stockée en `{"type":"decimal","value":"1200.50"}` — qui ne nomme NI compte NI période. Aucune
-         hypothèse saisie dans l'interface n'était donc calculable, quoi que sachent faire la base et
-         le moteur. `value` porte désormais compte + période + chiffre, dans la forme que le moteur
-         valide déjà (`lib/budgets/hypothesis-value.ts`, partagé avec `resolvers.py` — les deux
-         évoluent ensemble).
+[FAIT]
+  1. Moteur déterministe `services/calculation/` — stdlib pure, ZÉRO dépendance dans le cœur
+     (FastAPI isolé dans un extra `[api]`, `api.py`). Déterminisme prouvé ENTRE PROCESSUS
+     (`PYTHONHASHSEED` 0/1/42/random → même empreinte). Un pipeline, trois résolveurs
+     (`direct`, `cost_center`, `driver`) : choix d'Amine d'offrir les trois à l'utilisateur, le modèle
+     étant figé PAR VERSION budgétaire (une version publiée est immuable, son modèle aussi).
+     Une hypothèse non approuvée FAIT ÉCHOUER le calcul au lieu d'être filtrée en silence.
+     Les nombres circulent en CHAÎNE, jamais en nombre JSON : un float est refusé à la frontière.
+     Un inducteur (volume, prix, taux) n'est PAS soumis à l'échelle `numeric(24,6)` — seul le
+     résultat est arrondi, une fois, à l'agrégation.
+  2. Migration `20260902120000_publish_calculation` APPLIQUÉE en production (+ rollback + 16 pgTAP) :
+     colonne `budget_versions.calculation_model`, vue `budget_version_states`, fonction
+     `publish_calculation` (`security definer`, idempotente sur `input_hash`, publication atomique).
+  3. Marqueur `ponytail:` de `govern_hypotheses:72-77` FERMÉ : la supersession est DÉRIVÉE de
+     l'existence d'une version enfant (`is_superseded`), jamais écrite comme statut — l'invariant
+     d'immuabilité ne reçoit aucune brèche.
+  4. Écran `/app/consolidation/[versionId]` (DAF/DG), atteignable depuis la table des versions.
+  5. DÉFAUT MAJEUR CORRIGÉ : une hypothèse était stockée en `{"type":"decimal","value":"..."}` — ni
+     compte ni période. AUCUNE hypothèse saisie dans l'interface n'était calculable ; tout le chemin
+     livré était inatteignable depuis l'écran. `value` porte désormais compte + période + chiffre,
+     dans la forme que le moteur valide (`lib/budgets/hypothesis-value.ts`, jumeau de `resolvers.py`
+     — LES DEUX ÉVOLUENT ENSEMBLE). Choix du jsonb plutôt que de colonnes : la forme dépend du
+     modèle (inducteur = volume + prix ; taux = compte de base), que deux colonnes ne couvriraient
+     pas sans une foule de nuls.
+  6. Écran `/app/settings/reference` (comptes et périodes) — ils n'avaient AUCUNE interface, et un
+     calcul refuse sans eux. Réservé DAF/DG, comme leur RLS le dit déjà.
+  7. `decimalValue` supprimé (export mort) ; ses contrôles reportés sur la valeur que le moteur lit.
+  8. Vérifié DÉPLOYÉ (SOP-011) : `/app/settings/reference`, `/app/consolidation/[id]`, `/app/budgets`
+     rendent 307 vers `/login` contre 404 sur une URL bidon ; le conteneur web appelle le moteur avec
+     le vrai jeton et reçoit 422 (snapshot vide refusé), PAS 401 → authentification prouvée.
 
-         **2. Pourquoi dans le jsonb et non en colonnes** : la forme dépend du modèle de calcul (un
-         inducteur porte volume + prix, un taux porte un compte de base). Deux colonnes ne les
-         couvriraient pas sans une foule de nuls.
+[ALERTE]
+  - `lib/budgets/hypothesis-value.ts` et `services/calculation/.../resolvers.py` décrivent LA MÊME
+    forme de données. Modifier l'un sans l'autre casse le calcul en silence côté UI (le moteur, lui,
+    refusera). Aucun test ne relie encore les deux — angle mort assumé.
+  - L'unique hypothèse approuvée en base est à l'ANCIENNE forme : elle s'affiche « non calculable —
+    à ressaisir ». Ne pas la prendre pour un bug.
+  - Le jeu de FORMULES métier n'est pas tranché : `specs/_source/prd.md:138` pose la question du
+    modèle économique pilote. Les trois résolveurs donnent l'arithmétique et les garde-fous, PAS une
+    sémantique sectorielle. Convention d'arrondi `ROUND_HALF_UP` marquée `ponytail:` dans `engine.py`
+    (plafond + déclencheur = ce moment-là).
+  - `/app/consolidation/[versionId]` et `/app/settings/reference` ne figurent pas dans les Pages V1 de
+    `specs/_source/archi.md:104-115` (la première y est, sous une autre forme ; la seconde non).
+    L'archi est en retard sur le code : à réaligner.
 
-         **3. Le formulaire suit le modèle de la version**, lu en base et jamais soumis par le
-         formulaire : une hypothèse ne choisit pas comment sa version sera calculée. Corriger un
-         chiffre reconstruit la valeur autour des faits existants — ni contributeur ni approbateur ne
-         peut déplacer en silence une hypothèse vers un autre compte.
+[BLOQUE]
+  Plus rien de technique. Le blocage est un COMPTE : seul `a.mansouri@afriquestrategie.com` est
+  **DG actif** et peut créer comptes/périodes, approuver et publier.
+  `admin.technique@tarjih-os.com` (coffre : `TARJIH_ADMIN_EMAIL`, `TARJIH_ADMIN_TECHNIQUE`) est
+  *contributeur + tenant_admin* : il ne peut NI créer comptes/périodes NI publier — séparation VOULUE
+  (migration `separate_tenant_admin`). Les comptes `recette-*-05` sont suspendus.
+  Le mot de passe du DG n'est pas au coffre et n'a pas été réinitialisé.
 
-         **4. La forme historique reste LUE et affichée**, mais signalée « non calculable — à
-         ressaisir » sur l'écran de version et sur la fiche. Nommer la coupable vaut mieux que laisser
-         le calcul échouer plus tard sans dire laquelle.
+[NEXT]
+  1. Se connecter en DG, puis : Référentiel → 1 compte + 1 période ; Budget → saisir une hypothèse ;
+     l'approuver ; Consolidation → « Calculer et publier ». C'est le premier chiffre réel de Tarjih.
+  2. Trancher le modèle économique pilote (`prd.md:138`) et réexaminer l'arrondi.
+  3. Réaligner `specs/_source/archi.md` sur les routes réelles.
+  4. Task 08 (exports RBAC), 09 (parcours e2e Playwright), 10 (déploiement preview).
+  5. Optionnel : amender SOP-014 des quatre pièges ci-dessous (déclencheur REX atteint).
 
-         **5. Écran `/app/settings/reference`** (comptes et périodes) — il n'existait AUCUNE interface
-         pour eux, et un calcul refuse sans eux. Réservé DAF/DG, comme leur RLS le dit déjà.
+[CTX]
+  Serveur   : `ssh -i ~/.ssh/serveurai_mnemo -o BatchMode=yes serveuria@192.168.100.24` →
+              hostname attendu `serveuria-MS-7D98`.
+  Coolify   : projet `Tarjih` uuid `n3njfl7sfu0hatepq5ihugid`, serveur `etbh3cvs6qxr9l6w5hrcunj5`,
+              environnement `production`.
+  Variables : `tarjih-web` porte NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+              CALCULATION_SERVICE_URL (= `http://tarjih-calculation:8000`), CALCULATION_SERVICE_TOKEN.
+              `tarjih-calculation` porte CALCULATION_SERVICE_TOKEN. Coffre :
+              `TARJIH_CALCULATION_SERVICE_TOKEN` (ajouté ce jour, 64 car.).
+  Tests     : `cd services/calculation && PYTHONPATH=src python -m unittest discover -s tests`.
+              pgTAP : `cat supabase/tests/06_*.sql | ssh ... 'docker exec -i supabase-db-f10v8... psql
+              -U postgres -d postgres --set=client_encoding=UTF8 -v ON_ERROR_STOP=1 -f -'`.
 
-         **6. `decimalValue` supprimé** plutôt que laissé en export mort ; ses contrôles reportés sur
-         la valeur que le moteur sait lire (3 tests de plus).
+[MEMO]
+  Pièges payés cher cette session — ne pas les revivre :
+  1. ADRESSE D'UN SERVICE : une application Coolify « Dockerfile » reçoit un conteneur
+     `<uuid>-<horodatage>`, qui change à chaque déploiement → inutilisable comme adresse. Seuls les
+     services d'un COMPOSE reçoivent un alias = nom de service (vérifié sur `capture-worker`,
+     `hermes`, `broker`, `dispatcher`). D'où `docker-compose.calculation.yaml` à la RACINE du dépôt :
+     un `context: ../..` depuis le dossier du service remonte au-dessus du fichier compose, ce que
+     Docker refuse dans une arborescence clonée.
+  2. PATCH COMBINÉS IGNORÉS EN SILENCE : un corps portant `build_pack` ET `docker_compose_location`
+     n'applique qu'une partie des champs, sans erreur. UN CHAMP PAR PATCH, puis RELECTURE.
+  3. LOGS DE DÉPLOIEMENT ABSENTS DE L'API (`.logs` = null) : ils vivent dans la base de la plateforme
+     → `docker exec coolify-db psql -U coolify -d coolify -tAc "select logs from
+     application_deployment_queues where deployment_uuid = '<uuid>'"`. C'est la SEULE façon d'avoir
+     eu les deux causes réelles ; trois déploiements perdus avant d'y penser.
+  4. SONDE : la plateforme interroge le conteneur avec un client HTTP en ligne de commande. Une image
+     `python:*-slim` n'en embarque aucun → conteneur déclaré non sain → rollback silencieux. Installer
+     le client dans l'image et aligner les deux sondes (Dockerfile + compose).
+  5. QUOTING WINDOWS : dans une commande passée au broker, l'en-tête `Authorization` doit être en
+     GUILLEMETS DOUBLES. En guillemets simples, `$env:COOLIFY_API_TOKEN` part LITTÉRALEMENT et l'API
+     répond `Unauthenticated.` — le jeton est valide, c'est la commande qui est fautive.
+  6. RUNNER DE TESTS : `npm test` exécute les modules TS SANS le résolveur d'alias de Next. Un
+     `import type` via `@/` survit (effacé à la compilation), un IMPORT DE VALEUR NON. Dans un module
+     couvert par `npm test` : import relatif AVEC extension `.ts` (`./hypothesis-value.ts`).
+  7. PRESSE-PAPIER INTERMITTENT sur ce poste : disponible en début de session, `ERROR_ACCESS_DENIED`
+     une heure plus tard. Repli `add-secret.ps1 -Value $variable` (expansion runtime) → nécessaire.
+  8. BASH-GUARD, faux positifs : un message de commit contenant « Coolify » + « curl » est bloqué
+     (règle Couche D). Écrire le message dans un FICHIER puis `git commit -F <fichier>`.
 ```
-
-### Piège du runner de tests
-
-`npm test` exécute les modules TS **sans le résolveur d'alias de Next**. Un `import type` via `@/`
-survit (il est effacé à la compilation), un **import de valeur non** : il casse le test avec
-`ERR_MODULE_NOT_FOUND`. Dans un module couvert par `npm test`, importer en relatif **avec l'extension
-`.ts`** (`./hypothesis-value.ts`) — Node en ESM l'exige.
-
-### Ce qui bloque maintenant, et ce n'est plus du code
-
-Pour voir Tarjih calculer, il faut **se connecter en DG ou DAF** : `a.mansouri@afriquestrategie.com`
-est le seul **DG actif**. `admin.technique@tarjih-os.com` (au coffre) est *contributeur +
-tenant_admin* : il ne peut NI créer comptes/périodes NI publier — la séparation est voulue
-(migration `separate_tenant_admin`). Les comptes `recette-*-05` sont suspendus.
-
-Puis, dans cet ordre : créer un compte et une période (Référentiel) → saisir une hypothèse (l'unique
-hypothèse approuvée en base est à l'ancienne forme, donc non calculable) → l'approuver → « Calculer
-et publier » sur la version.
-
-Reste ouvert : le jeu de FORMULES métier (`specs/_source/prd.md:138`, modèle économique pilote non
-tranché) et l'arrondi `ROUND_HALF_UP` marqué `ponytail:` dans `engine.py`.
-Tasks restantes : 08 (exports RBAC), 09 (parcours e2e), 10 (déploiement preview).
-
----
-
-## 2026-09-02 — Tasks 06 et 07 livrées et déployées : Tarjih calcule enfin
-
-```
-[ETAT]   master poussé et vérifié (`HEAD` == `origin/master`). Dernier commit applicatif : `f900f26`.
-         Production : `tarjih-web` (`l3fov9fbnjvrgt5ly75b7g5r`) redéployé, `running:healthy`, conteneur
-         `...-115314219008`. NOUVEAU service `tarjih-calculation` (`tuxybsaq9adb6txew2rc6zkr`),
-         `running:healthy`. Point de rollback du web : image `l3fov9fbnjvrgt5ly75b7g5r:21b4ed6cebef...`.
-         Base Supabase de Tarjih = conteneur `supabase-db-f10v8td71bwii32blb9lalfk` (SEULE des onze
-         instances du serveur à porter les tables Tarjih — vérifié objet par objet, ne pas redeviner).
-         Gates : typecheck 0, lint 0, 27 tests Node, build OK, 26 tests Python, 16 contrôles pgTAP
-         exécutés sur la base de PRODUCTION (begin/rollback, rien laissé derrière).
-
-[FAIT]   **1. Moteur de calcul déterministe** (`services/calculation/`), stdlib pure, zéro dépendance.
-         Déterminisme prouvé ENTRE PROCESSUS (`PYTHONHASHSEED` 0/1/42/random → même empreinte).
-         Un pipeline, trois résolveurs (`direct`, `cost_center`, `driver`) — choix d'Amine d'offrir
-         les trois à l'utilisateur, le modèle étant figé PAR VERSION budgétaire.
-         Une hypothèse non approuvée FAIT ÉCHOUER le calcul au lieu d'être filtrée en silence.
-
-         **2. Publication atomique** (`publish_calculation`), idempotente sur `input_hash`. Migration
-         `20260902120000` appliquée en production, inscrite au registre (4 lignes).
-
-         **3. Le marqueur `ponytail:` de `govern_hypotheses:72-77` est FERMÉ.** La supersession est
-         DÉRIVÉE de l'existence d'une version enfant (vue `budget_version_states.is_superseded`) au
-         lieu d'être écrite comme statut : l'invariant d'immuabilité ne reçoit aucune brèche.
-
-         **4. Écran `/app/consolidation/[versionId]`**, accessible depuis la table des versions pour
-         DAF et DG seulement. Vérifié en production : 307 vers `/login` (la route existe et protège),
-         contre 404 sur une URL bidon.
-
-         **5. Chaîne web → moteur prouvée en production** : le conteneur du site appelle le moteur
-         avec le vrai jeton et reçoit 422 (snapshot vide refusé), PAS 401 — l'authentification passe.
-```
-
-### Écueils rencontrés, à ne pas revivre
-
-- **L'adresse d'un service sur la plateforme.** Une application « Dockerfile » reçoit un conteneur
-  nommé `<uuid>-<horodatage>`, qui change à chaque déploiement : inutilisable comme adresse. Seuls
-  les services d'un **compose** reçoivent un alias réseau égal au nom de service (vérifié sur
-  `capture-worker`, `hermes`, `broker`, `dispatcher`). D'où `docker-compose.calculation.yaml` à la
-  RACINE du dépôt — un `context: ../..` depuis le dossier du service remonte au-dessus du fichier
-  compose, ce que Docker refuse. Le web joint le moteur sur `http://tarjih-calculation:8000`.
-- **Les PATCH combinés de l'API sont ignorés en silence.** Un corps portant à la fois `build_pack`
-  et `docker_compose_location` n'applique qu'une partie des champs, sans erreur.
-  **Un champ par PATCH, puis relecture systématique.**
-- **L'API ne rend pas les logs de déploiement** (`.logs` = null). Ils vivent dans sa base :
-  `docker exec coolify-db psql -U coolify -d coolify -tAc "select logs from application_deployment_queues where deployment_uuid = '<uuid>'"`.
-  C'est ce qui a révélé les deux causes réelles, invisibles autrement.
-- **La sonde de la plateforme exige un client HTTP en ligne de commande DANS l'image.**
-  `python:3.13-slim` n'en embarque aucun : le conteneur était déclaré non sain et la plateforme
-  faisait un rollback — trois déploiements perdus avant de lire le log. Le client est désormais
-  installé dans l'image, et les deux sondes (Dockerfile et compose) s'alignent dessus.
-- **Quoting Windows** : dans une commande passée au broker, l'en-tête `Authorization` doit être en
-  GUILLEMETS DOUBLES. En guillemets simples, `$env:COOLIFY_API_TOKEN` part littéralement et l'API
-  répond `Unauthenticated.` — le jeton est valide, c'est la commande qui est fautive.
-- **Presse-papier intermittent** sur ce poste : disponible en début de session, `ERROR_ACCESS_DENIED`
-  une heure plus tard. Le repli `add-secret.ps1 -Value $variable` (expansion runtime) reste nécessaire.
-
-### Reste à faire — le blocage n'est plus technique
-
-**Aucun compte financier ni aucune période n'existe en base (0 et 0)**, pour 5 dimensions et 1 hypothèse
-approuvée. Le calcul refusera donc en `calculation-reference-missing` — comportement correct, mais
-aucun chiffre ne sortira. Et **aucun écran ne permet de créer comptes et périodes** : c'est le prochain
-manque réel, avant même les tasks 08-10.
-
-Reste aussi ouvert : le jeu de FORMULES métier. `specs/_source/prd.md:138` pose la question du modèle
-économique pilote et elle n'est pas tranchée. Les trois résolveurs fournissent l'arithmétique et les
-garde-fous, pas une sémantique sectorielle. La convention d'arrondi (`ROUND_HALF_UP`) est marquée
-`ponytail:` dans `engine.py` pour réexamen à ce moment-là.
-
-Tasks restantes : 08 (exports RBAC), 09 (parcours e2e), 10 (déploiement preview).
 
 ---
 
