@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 
 import { decideHypothesis, updateHypothesis } from "@/app/app/budgets/actions";
 import { requireActiveTenant } from "@/lib/auth/session";
+import { readHypothesisFacts } from "@/lib/budgets/hypothesis-value";
 import { noticeFrom } from "@/lib/budgets/notices";
 import {
   formatHypothesisValue,
@@ -89,6 +90,26 @@ export default async function HypothesisPage({
   const pending = hypothesis.status === "proposed";
   const mine = hypothesis.proposed_by === context.userId;
 
+  // Ce que la valeur porte réellement : le compte, la période, et la forme de
+  // l'inducteur s'il y en a un. Les formulaires s'y règlent.
+  const facts = readHypothesisFacts(hypothesis.value);
+
+  // La période est lue à part, et seulement si l'hypothèse en désigne une :
+  // inutile de charger le référentiel entier pour afficher une ligne.
+  const periodResult = facts.periodId
+    ? await supabase
+        .from("periods")
+        .select("starts_on, ends_on")
+        .eq("tenant_id", context.tenantId)
+        .eq("id", facts.periodId)
+        .maybeSingle()
+    : null;
+  const periodRow = periodResult?.data;
+  const periodLabel =
+    periodRow && typeof periodRow.starts_on === "string" && typeof periodRow.ends_on === "string"
+      ? `${periodRow.starts_on} → ${periodRow.ends_on}`
+      : "—";
+
   const canCorrect =
     pending && mine && !frozen && hasDimensionPermission(context, grants, hypothesis.dimension_id, "contribute");
   const canDecide =
@@ -129,16 +150,32 @@ export default async function HypothesisPage({
               <form action={updateHypothesis} className="console-form">
                 <input type="hidden" name="hypothesis_id" value={hypothesis.id} />
                 <input type="hidden" name="row_version" value={hypothesis.row_version} />
-                <label>
-                  Valeur
-                  <input
-                    name="value"
-                    required
-                    maxLength={64}
-                    inputMode="decimal"
-                    defaultValue={formatHypothesisValue(hypothesis.value)}
-                  />
-                </label>
+                {/* Un inducteur se corrige sur ses termes — volume et prix —
+                    et non sur le produit : c'est le moteur qui multiplie, et
+                    proposer le résultat en saisie effacerait l'inducteur. */}
+                {facts.driver === "volume_price" ? (
+                  <>
+                    <label>
+                      Volume
+                      <input name="volume" required maxLength={64} inputMode="decimal" />
+                    </label>
+                    <label>
+                      Prix unitaire
+                      <input name="unit_price" required maxLength={64} inputMode="decimal" />
+                    </label>
+                  </>
+                ) : (
+                  <label>
+                    Montant
+                    <input
+                      name="value"
+                      required
+                      maxLength={64}
+                      inputMode="decimal"
+                      defaultValue={facts.amount ?? ""}
+                    />
+                  </label>
+                )}
                 <label>
                   Unité
                   <input name="unit" required maxLength={32} defaultValue={hypothesis.unit} />
@@ -163,15 +200,35 @@ export default async function HypothesisPage({
                     <option value="rejected">Rejeter</option>
                   </select>
                 </label>
-                <label data-span="full">
-                  Valeur retenue (laisser vide pour garder celle proposée)
-                  <input
-                    name="replacement_value"
-                    maxLength={64}
-                    inputMode="decimal"
-                    placeholder={formatHypothesisValue(hypothesis.value)}
-                  />
-                </label>
+                {facts.driver === "volume_price" ? (
+                  <>
+                    <label>
+                      Volume retenu (vide = celui proposé)
+                      <input name="volume" maxLength={64} inputMode="decimal" />
+                    </label>
+                    <label>
+                      Prix retenu (vide = celui proposé)
+                      <input name="unit_price" maxLength={64} inputMode="decimal" />
+                    </label>
+                    {/* La RPC ne remplace la valeur que si ce champ est rempli :
+                        il porte le déclencheur, les deux champs ci-dessus le
+                        détail. */}
+                    <label data-span="full">
+                      Confirmer le remplacement (saisir n’importe quel chiffre)
+                      <input name="replacement_value" maxLength={64} inputMode="decimal" />
+                    </label>
+                  </>
+                ) : (
+                  <label data-span="full">
+                    Montant retenu (laisser vide pour garder celui proposé)
+                    <input
+                      name="replacement_value"
+                      maxLength={64}
+                      inputMode="decimal"
+                      placeholder={facts.amount ?? ""}
+                    />
+                  </label>
+                )}
                 <label data-span="full">
                   Motif
                   <textarea name="reason" required maxLength={500} />
@@ -210,6 +267,17 @@ export default async function HypothesisPage({
             <dd>
               {formatHypothesisValue(hypothesis.value)} {hypothesis.unit}
             </dd>
+            <dt>Compte visé</dt>
+            <dd>
+              {facts.accountCode ?? (
+                <span className="member-scope" data-scope="aucune">
+                  Aucun — cette hypothèse a été saisie avant que le compte et la période ne soient
+                  exigés. Elle ne peut pas être calculée et doit être ressaisie.
+                </span>
+              )}
+            </dd>
+            <dt>Période visée</dt>
+            <dd>{periodLabel}</dd>
             <dt>Révision</dt>
             <dd>
               {hypothesis.row_version} — chaque écriture succède à la précédente, jamais ne la

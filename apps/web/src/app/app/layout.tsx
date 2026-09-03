@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from "react";
 
 import { logout } from "@/app/login/actions";
 import { requireActiveTenant } from "@/lib/auth/session";
-import { canManageTenant, roleLabel } from "@/lib/authorization/capabilities";
+import { canManageFinance, canManageTenant, roleLabel } from "@/lib/authorization/capabilities";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }): Promise<ReactElement> {
   const context = await requireActiveTenant();
@@ -22,6 +22,11 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
           <nav className="header-nav">
             <Link href="/app">Cockpit</Link>
             <Link href="/app/budgets">Budget</Link>
+            {/* Le référentiel relève du DAF et du DG, comme sa RLS le dit : un
+                administrateur technique gère les accès, pas le plan comptable. */}
+            {canManageFinance(context) ? (
+              <Link href="/app/settings/reference">Référentiel</Link>
+            ) : null}
             {canManageTenant(context) ? (
               <Link href="/app/settings/dimensions">Administration</Link>
             ) : null}
