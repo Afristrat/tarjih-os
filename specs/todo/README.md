@@ -9,10 +9,23 @@ Total : 10 tâches, environ 32 heures estimées. Les estimations servent au déc
 | 03 | Implémenter l’authentification et le tenant actif | P0 | 3 | 02 | ✅ |
 | 04 | Administrer dimensions et autorisations | P0 | 4 | 03 | ✅ |
 | 05 | Gérer versions et hypothèses budgétaires | P0 | 4 | 04 | ✅ |
-| 06 | Construire le moteur Python déterministe | P0 | 4 | 02 | ⬜ |
-| 07 | Publier les calculs et la consolidation | P0 | 4 | 05, 06 | ⬜ |
+| 06 | Construire le moteur Python déterministe | P0 | 4 | 02 | ✅ |
+| 07 | Publier les calculs et la consolidation | P0 | 4 | 05, 06 | 🟨 |
 | 08 | Générer les exports soumis au RBAC | P1 | 3 | 07 | ⬜ |
 | 09 | Valider le parcours vertical dans le navigateur | P0 | 3 | 07 | ⬜ |
 | 10 | Préparer le déploiement preview | P1 | 1 | 08, 09 | ⬜ |
 
+Légende : ✅ terminée · 🟨 partielle, reste identifié ci-dessous · ⬜ non commencée.
+
 Chaque tâche doit se terminer avec lint, typecheck, tests et build sans erreur sur les fichiers concernés.
+
+## Restes identifiés
+
+- **07 — traçabilité d’un montant vers ses hypothèses sources.** Quatre des cinq critères sont
+  remplis : snapshot des seules hypothèses approuvées, appel authentifié et idempotent sur
+  `input_hash`, publication atomique par `public.publish_calculation`, consolidation réservée au DAF
+  et au DG. Le cinquième ne l’est pas : `public.budget_values` porte `calculation_run_id` et
+  `version_id`, mais rien ne relie un montant aux hypothèses qui l’ont produit. Le moteur calcule
+  pourtant cette information — `resolvers.Contribution.hypothesis_id` — et l’abandonne à
+  l’agrégation. Depuis un montant publié, on remonte à la version et donc à l’ensemble de ses
+  hypothèses approuvées, jamais à celles de ce montant précis.
