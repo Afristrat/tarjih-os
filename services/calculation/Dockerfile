@@ -12,6 +12,13 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
+# `curl` n'est pas un confort : la sonde de la plateforme interroge le conteneur
+# avec curl ou wget, et une image qui n'en a aucun est déclarée non saine puis
+# remplacée par la précédente — le déploiement échoue sans que l'application y
+# soit pour quelque chose.
+RUN apt-get update \
+  && apt-get install --no-install-recommends -y curl \
+  && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /install /usr/local
 COPY services/calculation/src ./src
 ENV PYTHONPATH=/app/src
@@ -23,5 +30,5 @@ EXPOSE 8000
 # pas si la configuration est bonne — sinon un jeton absent ferait redémarrer un
 # conteneur parfaitement sain, en boucle.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"
+  CMD curl -fsS http://127.0.0.1:8000/health || exit 1
 CMD ["python", "-m", "uvicorn", "tarjih_calculation.api:app", "--host", "0.0.0.0", "--port", "8000"]

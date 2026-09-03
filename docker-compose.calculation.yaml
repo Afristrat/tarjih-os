@@ -32,13 +32,7 @@ services:
       # `/health` ne consulte pas la clé de service : la sonde doit dire si le
       # processus vit, pas si la configuration est bonne — sinon un jeton absent
       # ferait redémarrer en boucle un conteneur parfaitement sain.
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)",
-        ]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
       interval: 30s
       timeout: 5s
       start_period: 20s
