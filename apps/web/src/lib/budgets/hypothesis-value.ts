@@ -10,10 +10,32 @@
  *
  * Le format produit ici est celui que le moteur Python valide déjà
  * (`services/calculation/src/tarjih_calculation/resolvers.py`). Les deux
- * doivent évoluer ensemble.
+ * doivent évoluer ensemble — et depuis `schemas/hypothesis-value.cases.json`,
+ * un corpus partagé les fait rougir tous les deux dès que l'un dérive.
  */
 
-const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d{1,6})?$/;
+/**
+ * Un nombre exact, écrit en chaîne. Le moteur refuse les flottants à sa
+ * frontière : un montant ne transite jamais en nombre JSON.
+ */
+const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
+
+/**
+ * Échelle de `numeric(24, 6)`, la colonne où un montant publiable atterrit.
+ * Elle ne s'applique **qu'aux montants** : un inducteur (volume, prix, taux)
+ * porte légitimement plus de décimales, seul le produit est arrondi, une fois,
+ * à l'agrégation (`contracts.require_factor`).
+ */
+const AMOUNT_SCALE = 6;
+
+/**
+ * Bornes de `numeric(24, 6)` : au-delà de 18 chiffres avant la virgule, le
+ * moteur refuse (`amount_overflow`). Le barrer à la saisie évite d'enregistrer
+ * une hypothèse qui ne fera échouer la publication que bien plus tard.
+ * Le moteur reste l'autorité : ce contrôle est là pour ne pas laisser passer
+ * l'évidence, pas pour dupliquer sa validation.
+ */
+const MAX_INTEGER_DIGITS = 18;
 
 export type HypothesisValue = Record<string, unknown>;
 
@@ -29,9 +51,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function decimal(raw: string): string | null {
+/** Normalise et vérifie la forme ; ne dit rien de l'échelle ni des bornes. */
+function exact(raw: string): string | null {
   const normalized = raw.trim().replace(",", ".");
-  return DECIMAL_PATTERN.test(normalized) ? normalized : null;
+  if (!DECIMAL_PATTERN.test(normalized)) {
+    return null;
+  }
+
+  const [integerPart = ""] = normalized.replace("-", "").split(".");
+  return integerPart.length > MAX_INTEGER_DIGITS ? null : normalized;
+}
+
+/** Un montant publiable : exact, et tenant dans l'échelle de la colonne. */
+function amount(raw: string): string | null {
+  const value = exact(raw);
+  if (value === null) {
+    return null;
+  }
+
+  const [, fractionPart = ""] = value.split(".");
+  return fractionPart.length > AMOUNT_SCALE ? null : value;
+}
+
+/**
+ * Un inducteur : volume, prix unitaire, taux.
+ *
+ * Contrairement à un montant, il n'est pas soumis à l'échelle de la colonne —
+ * un prix au litre ou un taux horaire porte plus de six décimales sans être
+ * fautif. Le durcir ici refuserait une saisie que le moteur accepte.
+ */
+function factor(raw: string): string | null {
+  return exact(raw);
 }
 
 /** Saisie directe : le montant est donné, aucune sémantique n'est ajoutée. */
@@ -40,10 +90,10 @@ export function buildDirectValue(
   periodId: string,
   rawAmount: string,
 ): HypothesisValue | null {
-  const amount = decimal(rawAmount);
-  return amount === null
+  const value = amount(rawAmount);
+  return value === null
     ? null
-    : { account_code: accountCode, amounts: [{ amount, period_id: periodId }] };
+    : { account_code: accountCode, amounts: [{ amount: value, period_id: periodId }] };
 }
 
 /** Inducteur : le montant est dérivé d'un volume et d'un prix unitaire. */
@@ -53,8 +103,8 @@ export function buildVolumePriceValue(
   rawVolume: string,
   rawUnitPrice: string,
 ): HypothesisValue | null {
-  const volume = decimal(rawVolume);
-  const unitPrice = decimal(rawUnitPrice);
+  const volume = factor(rawVolume);
+  const unitPrice = factor(rawUnitPrice);
   return volume === null || unitPrice === null
     ? null
     : {
@@ -70,6 +120,12 @@ export function buildVolumePriceValue(
  * La forme historique `{ type: "decimal", value: "…" }` est encore en base :
  * elle est lue pour rester affichable, mais n'est plus produite — elle ne dit
  * ni le compte ni la période, donc le moteur ne peut rien en faire.
+ *
+ * ponytail: seule la première entrée d'une hypothèse multi-périodes est
+ * affichée (`amounts`, `periods`, `period_ids`). Plafond : aucun chemin ne
+ * produit aujourd'hui plus d'une période — ni les formulaires, ni un import,
+ * qui n'existe pas. Déclencheur de réexamen : la première voie d'entrée
+ * multi-périodes (import comptable, API, formulaire multi-lignes).
  */
 export function readHypothesisFacts(value: unknown): HypothesisFacts {
   const empty: HypothesisFacts = {
@@ -104,6 +160,24 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
         periodId: typeof first.period_id === "string" ? first.period_id : null,
       };
     }
+  }
+
+  // Le moteur accepte ce troisième inducteur (`resolvers.DRIVERS`) alors
+  // qu'aucun formulaire ne le produit encore. Le lire quand même : sans cela
+  // l'écran annoncerait « non calculable » une hypothèse que le moteur publie.
+  if (driver === "percent_of" && Array.isArray(value.period_ids)) {
+    const rate = typeof value.rate === "string" ? value.rate : null;
+    const baseAccountCode =
+      typeof value.base_account_code === "string" ? value.base_account_code : null;
+    const first = value.period_ids[0];
+    return {
+      accountCode,
+      // Un taux n'a pas de montant tant que sa base n'est pas résolue : on
+      // montre l'inducteur, pas un chiffre qui n'engagerait personne.
+      amount: rate !== null && baseAccountCode !== null ? `${rate} × ${baseAccountCode}` : null,
+      driver,
+      periodId: typeof first === "string" ? first : null,
+    };
   }
 
   if (Array.isArray(value.amounts)) {

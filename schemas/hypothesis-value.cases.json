@@ -1,0 +1,281 @@
+{
+  "$comment": "Corpus partage - LA source unique de la forme d'une valeur d'hypothese. Consomme par apps/web/tests/hypothesis-value-bridge.test.ts ET services/calculation/tests/test_bridge.py. Toucher un seul des deux jumeaux fait rougir ce corpus. Les identifiants sont ceux des fixtures du moteur : ne pas les changer sans changer les deux harnais.",
+  "fixtures": {
+    "department": "33333333-3333-4333-8333-333333333333",
+    "product": "44444444-4444-4444-8444-444444444444",
+    "salesAccount": "55555555-5555-4555-8555-555555555555",
+    "costAccount": "66666666-6666-4666-8666-666666666666",
+    "q1": "77777777-7777-4777-8777-777777777777",
+    "q2": "88888888-8888-4888-8888-888888888888"
+  },
+  "accepted": [
+    {
+      "name": "saisie directe : le montant est publie tel quel",
+      "model": "direct",
+      "hypotheses": [
+        {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "dimensionId": "33333333-3333-4333-8333-333333333333",
+          "value": {
+            "account_code": "61",
+            "amounts": [
+              { "amount": "1200.50", "period_id": "77777777-7777-4777-8777-777777777777" }
+            ]
+          },
+          "builder": {
+            "fn": "buildDirectValue",
+            "args": ["61", "77777777-7777-4777-8777-777777777777", " 1200,50 "]
+          },
+          "facts": {
+            "accountCode": "61",
+            "amount": "1200.50",
+            "driver": null,
+            "periodId": "77777777-7777-4777-8777-777777777777"
+          }
+        }
+      ],
+      "values": [
+        {
+          "dimensionId": "33333333-3333-4333-8333-333333333333",
+          "accountId": "66666666-6666-4666-8666-666666666666",
+          "periodId": "77777777-7777-4777-8777-777777777777",
+          "amount": "1200.500000"
+        }
+      ]
+    },
+    {
+      "name": "centre de cout : une charge portee par un departement",
+      "model": "cost_center",
+      "hypotheses": [
+        {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "dimensionId": "33333333-3333-4333-8333-333333333333",
+          "value": {
+            "account_code": "61",
+            "amounts": [
+              { "amount": "300", "period_id": "88888888-8888-4888-8888-888888888888" }
+            ]
+          },
+          "builder": {
+            "fn": "buildDirectValue",
+            "args": ["61", "88888888-8888-4888-8888-888888888888", "300"]
+          },
+          "facts": {
+            "accountCode": "61",
+            "amount": "300",
+            "driver": null,
+            "periodId": "88888888-8888-4888-8888-888888888888"
+          }
+        }
+      ],
+      "values": [
+        {
+          "dimensionId": "33333333-3333-4333-8333-333333333333",
+          "accountId": "66666666-6666-4666-8666-666666666666",
+          "periodId": "88888888-8888-4888-8888-888888888888",
+          "amount": "300.000000"
+        }
+      ]
+    },
+    {
+      "name": "inducteur : volume et prix, jamais leur produit",
+      "model": "driver",
+      "hypotheses": [
+        {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "value": {
+            "account_code": "70",
+            "driver": "volume_price",
+            "periods": [
+              {
+                "period_id": "77777777-7777-4777-8777-777777777777",
+                "unit_price": "12.5",
+                "volume": "100"
+              }
+            ]
+          },
+          "builder": {
+            "fn": "buildVolumePriceValue",
+            "args": ["70", "77777777-7777-4777-8777-777777777777", "100", "12.5"]
+          },
+          "facts": {
+            "accountCode": "70",
+            "amount": "100 × 12.5",
+            "driver": "volume_price",
+            "periodId": "77777777-7777-4777-8777-777777777777"
+          }
+        }
+      ],
+      "values": [
+        {
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "accountId": "55555555-5555-4555-8555-555555555555",
+          "periodId": "77777777-7777-4777-8777-777777777777",
+          "amount": "1250.000000"
+        }
+      ]
+    },
+    {
+      "name": "inducteur : un prix unitaire porte plus de six decimales, seul le produit est arrondi",
+      "model": "driver",
+      "hypotheses": [
+        {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "value": {
+            "account_code": "70",
+            "driver": "volume_price",
+            "periods": [
+              {
+                "period_id": "77777777-7777-4777-8777-777777777777",
+                "unit_price": "0.12345678",
+                "volume": "1000000"
+              }
+            ]
+          },
+          "builder": {
+            "fn": "buildVolumePriceValue",
+            "args": ["70", "77777777-7777-4777-8777-777777777777", "1000000", "0.12345678"]
+          },
+          "facts": {
+            "accountCode": "70",
+            "amount": "1000000 × 0.12345678",
+            "driver": "volume_price",
+            "periodId": "77777777-7777-4777-8777-777777777777"
+          }
+        }
+      ],
+      "values": [
+        {
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "accountId": "55555555-5555-4555-8555-555555555555",
+          "periodId": "77777777-7777-4777-8777-777777777777",
+          "amount": "123456.780000"
+        }
+      ]
+    },
+    {
+      "name": "taux : un pourcentage applique a une base resolue sur la meme dimension",
+      "$comment": "Aucun formulaire ne produit encore cette forme (builder null). Elle doit neanmoins etre LUE correctement : le moteur l'accepte, donc l'ecran ne doit jamais la declarer non calculable.",
+      "model": "driver",
+      "hypotheses": [
+        {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "value": {
+            "account_code": "70",
+            "driver": "volume_price",
+            "periods": [
+              {
+                "period_id": "77777777-7777-4777-8777-777777777777",
+                "unit_price": "10",
+                "volume": "100"
+              }
+            ]
+          },
+          "builder": {
+            "fn": "buildVolumePriceValue",
+            "args": ["70", "77777777-7777-4777-8777-777777777777", "100", "10"]
+          },
+          "facts": {
+            "accountCode": "70",
+            "amount": "100 × 10",
+            "driver": "volume_price",
+            "periodId": "77777777-7777-4777-8777-777777777777"
+          }
+        },
+        {
+          "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "value": {
+            "account_code": "61",
+            "base_account_code": "70",
+            "driver": "percent_of",
+            "period_ids": ["77777777-7777-4777-8777-777777777777"],
+            "rate": "0.35"
+          },
+          "builder": null,
+          "facts": {
+            "accountCode": "61",
+            "amount": "0.35 × 70",
+            "driver": "percent_of",
+            "periodId": "77777777-7777-4777-8777-777777777777"
+          }
+        }
+      ],
+      "values": [
+        {
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "accountId": "55555555-5555-4555-8555-555555555555",
+          "periodId": "77777777-7777-4777-8777-777777777777",
+          "amount": "1000.000000"
+        },
+        {
+          "dimensionId": "44444444-4444-4444-8444-444444444444",
+          "accountId": "66666666-6666-4666-8666-666666666666",
+          "periodId": "77777777-7777-4777-8777-777777777777",
+          "amount": "350.000000"
+        }
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "name": "un montant a sept decimales ne tient pas dans numeric(24, 6)",
+      "model": "direct",
+      "builder": {
+        "fn": "buildDirectValue",
+        "args": ["61", "77777777-7777-4777-8777-777777777777", "1.1234567"]
+      },
+      "dimensionId": "33333333-3333-4333-8333-333333333333",
+      "value": {
+        "account_code": "61",
+        "amounts": [
+          { "amount": "1.1234567", "period_id": "77777777-7777-4777-8777-777777777777" }
+        ]
+      },
+      "engineError": "amount_scale"
+    },
+    {
+      "name": "un montant hors des bornes de numeric(24, 6)",
+      "model": "direct",
+      "builder": {
+        "fn": "buildDirectValue",
+        "args": ["61", "77777777-7777-4777-8777-777777777777", "1000000000000000000"]
+      },
+      "dimensionId": "33333333-3333-4333-8333-333333333333",
+      "value": {
+        "account_code": "61",
+        "amounts": [
+          {
+            "amount": "1000000000000000000",
+            "period_id": "77777777-7777-4777-8777-777777777777"
+          }
+        ]
+      },
+      "engineError": "amount_overflow"
+    },
+    {
+      "name": "un inducteur illisible",
+      "model": "driver",
+      "builder": {
+        "fn": "buildVolumePriceValue",
+        "args": ["70", "77777777-7777-4777-8777-777777777777", "100", "abc"]
+      },
+      "dimensionId": "44444444-4444-4444-8444-444444444444",
+      "value": {
+        "account_code": "70",
+        "driver": "volume_price",
+        "periods": [
+          {
+            "period_id": "77777777-7777-4777-8777-777777777777",
+            "unit_price": "abc",
+            "volume": "100"
+          }
+        ]
+      },
+      "engineError": "amount_invalid"
+    }
+  ]
+}
