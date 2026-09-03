@@ -1,7 +1,7 @@
 ---
 task_id: 06
 title: Construire le moteur Python déterministe
-status: pending
+status: done
 priority: P0
 estimated_hours: 4
 prd_features: [Modèle financier versionné et moteur déterministe]
@@ -15,11 +15,11 @@ created: 2026-08-07
 
 ## Acceptance criteria
 
-- [ ] Le cœur de calcul est une fonction pure recevant un snapshot typé.
-- [ ] Deux exécutions identiques produisent le même résultat et la même empreinte.
-- [ ] Les hypothèses non approuvées sont rejetées.
-- [ ] Les contrôles d’identité financière bloquent toute sortie incohérente.
-- [ ] Les tests n’utilisent que des données fictives.
+- [x] Le cœur de calcul est une fonction pure recevant un snapshot typé.
+- [x] Deux exécutions identiques produisent le même résultat et la même empreinte.
+- [x] Les hypothèses non approuvées sont rejetées.
+- [x] Les contrôles d’identité financière bloquent toute sortie incohérente.
+- [x] Les tests n’utilisent que des données fictives.
 
 ## Files
 

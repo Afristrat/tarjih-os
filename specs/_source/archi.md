@@ -112,6 +112,7 @@ Le service Python ne reçoit aucun cookie utilisateur et ne choisit jamais le te
 | `/app/consolidation/[versionId]` | résultats consolidés | serveur | DAF ou DG |
 | `/app/settings/members` | membres et rôles | serveur | administrateur tenant |
 | `/app/settings/dimensions` | dimensions et grants | serveur | administrateur tenant |
+| `/app/settings/reference` | comptes financiers et périodes | serveur | DAF ou DG |
 
 Les Server Actions effectuent les mutations ordinaires. Les endpoints HTTP sont réservés au contrat du service Python, aux exports et aux futurs webhooks.
 
