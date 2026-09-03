@@ -4,6 +4,79 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-02 — Tasks 06 et 07 livrées et déployées : Tarjih calcule enfin
+
+```
+[ETAT]   master poussé et vérifié (`HEAD` == `origin/master`). Dernier commit applicatif : `f900f26`.
+         Production : `tarjih-web` (`l3fov9fbnjvrgt5ly75b7g5r`) redéployé, `running:healthy`, conteneur
+         `...-115314219008`. NOUVEAU service `tarjih-calculation` (`tuxybsaq9adb6txew2rc6zkr`),
+         `running:healthy`. Point de rollback du web : image `l3fov9fbnjvrgt5ly75b7g5r:21b4ed6cebef...`.
+         Base Supabase de Tarjih = conteneur `supabase-db-f10v8td71bwii32blb9lalfk` (SEULE des onze
+         instances du serveur à porter les tables Tarjih — vérifié objet par objet, ne pas redeviner).
+         Gates : typecheck 0, lint 0, 27 tests Node, build OK, 26 tests Python, 16 contrôles pgTAP
+         exécutés sur la base de PRODUCTION (begin/rollback, rien laissé derrière).
+
+[FAIT]   **1. Moteur de calcul déterministe** (`services/calculation/`), stdlib pure, zéro dépendance.
+         Déterminisme prouvé ENTRE PROCESSUS (`PYTHONHASHSEED` 0/1/42/random → même empreinte).
+         Un pipeline, trois résolveurs (`direct`, `cost_center`, `driver`) — choix d'Amine d'offrir
+         les trois à l'utilisateur, le modèle étant figé PAR VERSION budgétaire.
+         Une hypothèse non approuvée FAIT ÉCHOUER le calcul au lieu d'être filtrée en silence.
+
+         **2. Publication atomique** (`publish_calculation`), idempotente sur `input_hash`. Migration
+         `20260902120000` appliquée en production, inscrite au registre (4 lignes).
+
+         **3. Le marqueur `ponytail:` de `govern_hypotheses:72-77` est FERMÉ.** La supersession est
+         DÉRIVÉE de l'existence d'une version enfant (vue `budget_version_states.is_superseded`) au
+         lieu d'être écrite comme statut : l'invariant d'immuabilité ne reçoit aucune brèche.
+
+         **4. Écran `/app/consolidation/[versionId]`**, accessible depuis la table des versions pour
+         DAF et DG seulement. Vérifié en production : 307 vers `/login` (la route existe et protège),
+         contre 404 sur une URL bidon.
+
+         **5. Chaîne web → moteur prouvée en production** : le conteneur du site appelle le moteur
+         avec le vrai jeton et reçoit 422 (snapshot vide refusé), PAS 401 — l'authentification passe.
+```
+
+### Écueils rencontrés, à ne pas revivre
+
+- **L'adresse d'un service sur la plateforme.** Une application « Dockerfile » reçoit un conteneur
+  nommé `<uuid>-<horodatage>`, qui change à chaque déploiement : inutilisable comme adresse. Seuls
+  les services d'un **compose** reçoivent un alias réseau égal au nom de service (vérifié sur
+  `capture-worker`, `hermes`, `broker`, `dispatcher`). D'où `docker-compose.calculation.yaml` à la
+  RACINE du dépôt — un `context: ../..` depuis le dossier du service remonte au-dessus du fichier
+  compose, ce que Docker refuse. Le web joint le moteur sur `http://tarjih-calculation:8000`.
+- **Les PATCH combinés de l'API sont ignorés en silence.** Un corps portant à la fois `build_pack`
+  et `docker_compose_location` n'applique qu'une partie des champs, sans erreur.
+  **Un champ par PATCH, puis relecture systématique.**
+- **L'API ne rend pas les logs de déploiement** (`.logs` = null). Ils vivent dans sa base :
+  `docker exec coolify-db psql -U coolify -d coolify -tAc "select logs from application_deployment_queues where deployment_uuid = '<uuid>'"`.
+  C'est ce qui a révélé les deux causes réelles, invisibles autrement.
+- **La sonde de la plateforme exige un client HTTP en ligne de commande DANS l'image.**
+  `python:3.13-slim` n'en embarque aucun : le conteneur était déclaré non sain et la plateforme
+  faisait un rollback — trois déploiements perdus avant de lire le log. Le client est désormais
+  installé dans l'image, et les deux sondes (Dockerfile et compose) s'alignent dessus.
+- **Quoting Windows** : dans une commande passée au broker, l'en-tête `Authorization` doit être en
+  GUILLEMETS DOUBLES. En guillemets simples, `$env:COOLIFY_API_TOKEN` part littéralement et l'API
+  répond `Unauthenticated.` — le jeton est valide, c'est la commande qui est fautive.
+- **Presse-papier intermittent** sur ce poste : disponible en début de session, `ERROR_ACCESS_DENIED`
+  une heure plus tard. Le repli `add-secret.ps1 -Value $variable` (expansion runtime) reste nécessaire.
+
+### Reste à faire — le blocage n'est plus technique
+
+**Aucun compte financier ni aucune période n'existe en base (0 et 0)**, pour 5 dimensions et 1 hypothèse
+approuvée. Le calcul refusera donc en `calculation-reference-missing` — comportement correct, mais
+aucun chiffre ne sortira. Et **aucun écran ne permet de créer comptes et périodes** : c'est le prochain
+manque réel, avant même les tasks 08-10.
+
+Reste aussi ouvert : le jeu de FORMULES métier. `specs/_source/prd.md:138` pose la question du modèle
+économique pilote et elle n'est pas tranchée. Les trois résolveurs fournissent l'arithmétique et les
+garde-fous, pas une sémantique sectorielle. La convention d'arrondi (`ROUND_HALF_UP`) est marquée
+`ponytail:` dans `engine.py` pour réexamen à ce moment-là.
+
+Tasks restantes : 08 (exports RBAC), 09 (parcours e2e), 10 (déploiement preview).
+
+---
+
 ## 2026-08-28 (suite) — Registre de migrations posé, task 05 close et prouvée en production
 
 ```
