@@ -8,7 +8,8 @@
     "lint": "npm --prefix apps/web run lint",
     "typecheck": "npm --prefix apps/web run typecheck",
     "test": "npm --prefix apps/web test",
-    "test:db": "node ./node_modules/supabase/dist/supabase.js test db supabase/tests --local"
+    "test:db": "node ./node_modules/supabase/dist/supabase.js test db supabase/tests --local",
+    "test:e2e": "npm --prefix apps/web run test:e2e"
   },
   "devDependencies": {
     "supabase": "2.112.0"
