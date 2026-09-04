@@ -38,29 +38,48 @@ on conflict (id) do update set name = excluded.name;
 -- `ENABLE_EMAIL_AUTOCONFIRM=false`, et un compte de recette n'a pas de boîte
 -- aux lettres où aller chercher un lien.
 
+-- Les colonnes de jetons doivent être VIDES, jamais nulles : GoTrue les lit en
+-- `string` non nullable et un NULL fait échouer la connexion par
+-- « converting NULL to string is unsupported » — que l'écran traduit, à tort,
+-- en « mot de passe incorrect ». La forme retenue est celle d'un compte créé
+-- par l'API, relevée colonne par colonne sur un compte qui fonctionne.
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
 ) values
   ('e2e00000-0000-4000-8000-000000000021', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'e2e-contributeur@tarjih-os.com',
    extensions.crypt('__PW_CONTRIB__', extensions.gen_salt('bf')), now(),
-   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()),
+   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
+   '', '', '', '', '', '', '', ''),
   ('e2e00000-0000-4000-8000-000000000022', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'e2e-daf@tarjih-os.com',
    extensions.crypt('__PW_DAF__', extensions.gen_salt('bf')), now(),
-   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()),
+   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
+   '', '', '', '', '', '', '', ''),
   ('e2e00000-0000-4000-8000-000000000023', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'e2e-dg@tarjih-os.com',
    extensions.crypt('__PW_DG__', extensions.gen_salt('bf')), now(),
-   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()),
+   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
+   '', '', '', '', '', '', '', ''),
   ('e2e00000-0000-4000-8000-000000000024', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'e2e-intrus@tarjih-os.com',
    extensions.crypt('__PW_INTRUS__', extensions.gen_salt('bf')), now(),
-   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now())
+   '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
+   '', '', '', '', '', '', '', '')
 on conflict (id) do update
   set encrypted_password = excluded.encrypted_password,
       email_confirmed_at = coalesce(auth.users.email_confirmed_at, excluded.email_confirmed_at),
+      confirmation_token = '',
+      recovery_token = '',
+      email_change_token_new = '',
+      email_change = '',
+      email_change_token_current = '',
+      phone_change = '',
+      phone_change_token = '',
+      reauthentication_token = '',
       updated_at = now();
 
 -- Sans identité « email », GoTrue refuse la connexion par mot de passe.

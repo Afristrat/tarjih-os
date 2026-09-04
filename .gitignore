@@ -59,3 +59,9 @@ specs/state.json
 
 # Artefacts de recette navigateur (Playwright MCP)
 .playwright-mcp/
+
+# Recette navigateur (Playwright)
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+apps/web/.playwright/

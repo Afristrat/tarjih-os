@@ -12,7 +12,7 @@ Total : 10 tâches, environ 32 heures estimées. Les estimations servent au déc
 | 06 | Construire le moteur Python déterministe | P0 | 4 | 02 | ✅ |
 | 07 | Publier les calculs et la consolidation | P0 | 4 | 05, 06 | 🟨 |
 | 08 | Générer les exports soumis au RBAC | P1 | 3 | 07 | ⬜ |
-| 09 | Valider le parcours vertical dans le navigateur | P0 | 3 | 07 | ⬜ |
+| 09 | Valider le parcours vertical dans le navigateur | P0 | 3 | 07 | ✅ |
 | 10 | Préparer le déploiement preview | P1 | 1 | 08, 09 | ⬜ |
 
 Légende : ✅ terminée · 🟨 partielle, reste identifié ci-dessous · ⬜ non commencée.

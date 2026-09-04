@@ -4,6 +4,120 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-04 — Tarjih produit son premier chiffre, et une recette navigateur le rejoue
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master`, worktree propre. Prod sur l'image du commit poussé
+              (vérifié : tag d'image == sha du commit, conteneur `healthy`).
+  Gates     : typecheck 0, lint 0 (e2e et config Playwright inclus), 39 tests Node,
+              29 tests Python, build OK, **6 tests Playwright verts contre
+              `https://tarjih-os.com`** (145 s, code de sortie 0, deux exécutions).
+  Données   : tenant réel « Afrique Stratégie » — 1 cycle, 1 hypothèse, **INTACT** (recompté après
+              deux passages de recette). Tenants de recette : 2 cycles, 4 hypothèses,
+              2 versions publiées.
+  Tasks     : 01→06 ✅ · **07 🟨** (un critère non rempli, voir ALERTE) · 08 ⬜ · **09 ✅** · 10 ⬜.
+
+[FAIT]
+  1. LE PONT ENTRE LES DEUX JUMEAUX EST POSÉ. `lib/budgets/hypothesis-value.ts` et
+     `resolvers.py` décrivaient la même forme sans rien qui les relie : en modifier un cassait le
+     calcul en silence côté écran. Ils lisent désormais UN corpus,
+     `schemas/hypothesis-value.cases.json`, avec un test de chaque côté. Deux règles, une par
+     côté : tout ce que l'interface PRODUIT, le moteur l'accepte ; tout ce que le moteur ACCEPTE,
+     l'interface sait le relire.
+  2. Le filet a été rendu ROUGE avant toute correction, et il a attrapé TROIS divergences réelles :
+     (a) un prix unitaire à plus de six décimales était refusé à la saisie alors que le moteur
+     l'autorise délibérément — la validation d'un inducteur est maintenant distincte de celle d'un
+     montant ; (b) `percent_of`, que le moteur résout, était illisible côté interface : une
+     hypothèse valide s'affichait « non calculable — à ressaisir » ; (c) un montant hors de
+     `numeric(24,6)` était accepté à la saisie et n'échouait qu'à la publication.
+     Discrimination prouvée dans les deux sens (un champ renommé dans `resolvers.py` fait rougir
+     trois cas côté Python).
+  3. JEU DE RECETTE (`supabase/seed/e2e-recette.sql`) : deux tenants qui ne seront jamais un
+     client, quatre comptes, les autorisations que les règles exigent RÉELLEMENT — le DAF porte
+     `can_approve` SUR LA DIMENSION, car `decide_hypothesis` demande cette permission et pas le
+     rôle. Aucun mot de passe dans le dépôt : les marqueurs sont remplacés au runtime depuis le
+     coffre (`TARJIH_E2E_PW_*`).
+  4. RECETTE NAVIGATEUR (task 09) contre le domaine DÉPLOYÉ, jamais un serveur local (SOP-011) :
+     référentiel → cycle → version → deux hypothèses → une seule approuvée → calcul → publication,
+     plus le contrôle d'isolation inter-tenant. Zéro erreur de console sur tout le parcours.
+  5. **LE PREMIER CHIFFRE RÉEL DE TARJIH EXISTE** — et il est prouvé EN BASE, indépendamment de
+     Playwright : version `published`, moteur `1.0.0`, empreinte `6d5de917d09b`,
+     **1 200,500000 MAD**. L'hypothèse `charge_en_attente` (999,99) est restée `proposed` et n'a
+     produit aucune valeur : la gouvernance filtre, ce n'est plus une intention.
+  6. Documentation réalignée sur le code : `/app/settings/reference` ajoutée aux Pages V1 de
+     `archi.md`, tableau des tasks corrigé (06 était marquée non commencée alors qu'elle tourne).
+
+[ALERTE]
+  - **LA PASSATION PRÉCÉDENTE DÉCLARAIT LA TASK 07 TERMINÉE. C'EST FAUX.** Quatre critères sur
+    cinq tiennent, vérifiés un par un. Le cinquième non : `budget_values` porte le run et la
+    version, mais RIEN ne relie un montant aux hypothèses qui l'ont produit. Le moteur calcule
+    pourtant ce lien (`resolvers.Contribution.hypothesis_id`) et l'abandonne à l'agrégation.
+    Depuis un montant publié on remonte à la version, donc à TOUTES ses hypothèses approuvées,
+    jamais à celles de ce chiffre-là. Sur une version qui en porte des dizaines, cela ne répond
+    pas à « d'où vient ce chiffre ». Statut ramené à 🟨, reste écrit dans la task.
+  - **`login/actions.ts` traduit une panne du service d'authentification en « mot de passe
+    incorrect ».** Constaté en vrai : GoTrue renvoyait un 500
+    (`converting NULL to string is unsupported`) et l'écran affichait `invalid-credentials`. Un DAF
+    bloqué par une panne d'infrastructure s'entend donc dire que son mot de passe est faux. Non
+    corrigé : cela ajoute un message visible par l'utilisateur, donc c'est un arbitrage produit.
+  - **Le worker Playwright a refusé de se terminer une fois** (« did not exit within 300000ms »),
+    faisant sortir la suite en code 1 alors que les six tests passaient. NON REPRODUIT sur deux
+    exécutions suivantes (code 0, 145 s). Le poste portait alors des dizaines de processus
+    Chromium et Playwright résiduels appartenant à un AUTRE projet. Signalé, pas « corrigé ».
+  - **Résidu de recette assumé** : chaque exécution publie une version, et une version publiée est
+    immuable — elle ne peut pas être nettoyée. Les versions s'accumulent donc dans les tenants de
+    recette. C'est le prix du choix (arbitré par Amine) de jouer la recette en production plutôt
+    que de provisionner un second stack ; le tenant réel a été recompté INTACT après coup.
+  - **Arbitrage du 2026-08-28 TOUJOURS OUVERT et disparu de la dernière passation** : un
+    approbateur doit-il voir l'identité de l'auteur d'une hypothèse ? Rien n'a été fait, comme
+    convenu, mais la question n'a jamais reçu de réponse.
+
+[BLOQUE]
+  Rien de technique. Le compte DG réel (`a.mansouri@afriquestrategie.com`) reste le seul DG actif
+  et son mot de passe n'est pas au coffre — mais ce n'est PLUS un blocage : la recette a ses
+  propres acteurs et n'emprunte jamais le compte d'une personne réelle.
+
+[NEXT]
+  1. **Trancher le critère 5 de la 07** : relier un montant publié à ses hypothèses sources.
+     Le moteur a déjà l'information ; il faut la transporter (table de liens ou colonne) et la
+     montrer. C'est la dernière dette de la tranche verticale.
+  2. **Deux arbitrages produit en attente** : identité de l'auteur pour un approbateur (ouvert
+     depuis le 28/08) ; message distinct quand l'authentification est en panne.
+  3. Modèle économique pilote (`prd.md:138`) et réexamen de l'arrondi `ROUND_HALF_UP`
+     (`engine.py:32`, seul marqueur `ponytail:` vivant du dépôt).
+  4. Task 08 (exports RBAC), puis 10 (déploiement preview).
+
+[CTX]
+  Recette : les mots de passe vivent au coffre (`TARJIH_E2E_PW_CONTRIB|DAF|DG|INTRUS`) et ne
+  s'utilisent QUE par le broker. La commande complète est écrite dans
+  `specs/todo/09-parcours-e2e.md`. `E2E_BASE_URL` surcharge la cible.
+  Le jeu de comptes se repose avec `supabase/seed/e2e-recette.sql` (réexécutable, marqueurs
+  remplacés au runtime) — ce n'est PAS une migration et il ne s'inscrit pas au registre.
+
+[MEMO]
+  Pièges payés cette session :
+  1. **UN COMPTE CRÉÉ EN SQL NE PEUT PAS SE CONNECTER SI SES COLONNES DE JETONS SONT NULLES.**
+     GoTrue les lit en `string` non nullable : `confirmation_token`, `recovery_token`,
+     `email_change_token_new`, `email_change` doivent valoir la chaîne vide. Le symptôme ment —
+     l'écran dit « mot de passe incorrect », la vérité est dans `docker logs supabase-auth-…`.
+     La bonne méthode : comparer colonne par colonne avec un compte qui FONCTIONNE, pas deviner.
+  2. **`page.goto` attend par défaut TOUTES les sous-ressources** (`waitUntil: "load"`). Sur ce
+     site, cela faisait passer une étape de 9 s à 46 s et finissait en navigation avortée.
+     `domcontentloaded` suffit : les localisateurs attendent déjà leur élément.
+  3. **Le garde anti-fuite bloque une lecture d'environnement dans un conteneur, même sans
+     imprimer la valeur.** Ne pas le contourner : changer d'approche. Ici, créer les comptes en SQL
+     a évité de déplacer le moindre secret — meilleur sur tous les axes.
+  4. **Le broker coupe à 300 s** ; une suite navigateur dépasse. `-TimeoutSec 900`.
+  5. **Un garde de sécurité peut se déclencher sur sa propre documentation** : le contrôle
+     « aucun marqueur de mot de passe ne subsiste » matchait le commentaire d'en-tête qui citait
+     le motif. Un garde doit chercher une forme, pas une sous-chaîne présente dans sa propre prose.
+  6. **PowerShell ne connaît pas la redirection `<`.** Pour alimenter l'entrée standard d'un
+     exécutable natif, il faut un tube depuis une variable.
+```
+
+---
+
 ## 2026-09-03 — Tarjih calcule : moteur déterministe, publication atomique, référentiel
 
 > Cette entrée remplace et consolide celles du 2026-09-02 et du 2026-09-03 (première rédaction),
