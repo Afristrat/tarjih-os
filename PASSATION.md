@@ -4,6 +4,127 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-06 — Chaque chiffre publié dit d'où il vient, et deux failles sortent du bois
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == `6544cd4`, worktree propre. Web ET moteur déployés sur
+              `65e73dd`, conteneurs `healthy` (tags d'image vérifiés, pas déduits du statut).
+  Gates     : typecheck 0, lint 0 warning, **49 tests Node**, **36 tests Python**, build OK,
+              **90 contrôles pgTAP** sur les SEPT fichiers, joués contre la PRODUCTION en
+              begin/rollback, 0 échec. **6 tests Playwright verts** contre `https://tarjih-os.com`.
+  Données   : 3 montants publiés, **0 sans origine**, 3 parts. Tenant réel « Afrique Stratégie » :
+              1 hypothèse, 0 montant — INTACT et recompté après coup.
+  Migrations: registre à 7 lignes (ajout de `20260906120000`, `20260906130000`, `20260906140000`).
+              Les trois rollbacks existent ; celui de la traçabilité a été joué en transaction
+              d'essai et prouvé par cinq contrôles avant application.
+  Tasks     : 01→07 ✅ · 08 ⬜ · 09 ✅ · 10 ⬜. **La 07 est close, critère 5 compris.**
+
+[FAIT]
+  1. **D'OÙ VIENT CE CHIFFRE : la réponse existe.** `public.budget_value_sources` porte la part
+     EXACTE de chaque hypothèse dans chaque montant. Trois propriétés la rendent utilisable :
+     elle est exacte et non arrondie (`numeric` sans échelle contre `numeric(24, 6)` pour le
+     montant — arrondir les parts imprimerait une addition fausse) ; elle ne peut pas manquer
+     (l'ancienne fonction à cinq paramètres, qui publiait sans origine, est SUPPRIMÉE, pas
+     surchargée ; un montant sans part, une part orpheline ou une part citant l'hypothèse d'une
+     autre version font échouer la publication entière) ; elle ne se réécrit pas (trigger, donc
+     même un chemin `security definer` bute dessus).
+  2. **LES DEUX VERSIONS DÉJÀ PUBLIÉES ONT ÉTÉ REJOUÉES, PAS DEVINÉES.** Le snapshot d'entrée
+     n'existe nulle part — `calculation_runs` n'en garde que l'EMPREINTE. La reconstruction n'écrit
+     donc que si l'empreinte recalculée retrouve `input_hash`. C'est ce témoin qui a révélé
+     l'alerte n°1 ci-dessous : sans lui, on aurait écrit une origine plausible sous un chiffre
+     intangible, et on n'aurait rien vu.
+  3. **L'ARRONDI TENAIT EN DEUX CONVENTIONS CONCURRENTES.** L'agrégation arrondissait en commercial
+     (`ROUND_HALF_UP`), la sérialisation canonique au pair le plus proche — le défaut de `Decimal`,
+     jamais choisi. Sans effet tant qu'elle ne recevait que des montants déjà arrondis ; or les
+     parts, elles, ne le sont pas. `to_publishable` est désormais le SEUL endroit qui arrondit.
+     Marqueur `ponytail:` de `engine.py` fermé : la convention est actée, pas reportée.
+     Prouvé sans régression : cinq budgets, dont deux cas d'arrondi limite, donnent des empreintes
+     et des valeurs IDENTIQUES avant et après (comparaison contre le code extrait de `git archive`).
+  4. **LE CORPUS PARTAGÉ N'AVAIT AUCUN CAS MULTI-PÉRIODES**, alors que le moteur boucle sur
+     `amounts` et en produit une contribution par période. Les deux jumeaux pouvaient donc diverger
+     en silence sur une forme acceptée. Le cas existe, et il discrimine des deux côtés (falsifié à
+     251,00 : le Python rougit ; restauré : vert).
+  5. Cas 8 : une hypothèse à deux périodes n'est plus affichée comme si elle n'en portait qu'une —
+     « (1re de 2 périodes) ». Un affichage tronqué SANS le dire, sur un chiffre financier, est ce
+     qui détruit la confiance dans l'outil.
+  6. Cas 4 : une panne du service d'authentification ne s'annonce plus « mot de passe incorrect ».
+     La distinction se fait sur le code HTTP (4xx = refus, le reste = panne) et ne dit JAMAIS si
+     l'adresse existe. Une erreur sans statut est traitée comme une panne : rien n'a vérifié le
+     mot de passe, donc rien ne permet de le mettre en doute.
+  7. Cas 3 : l'approbateur voit qui a proposé. `list_hypothesis_authors` ne rend que les auteurs
+     des hypothèses que l'appelant a DÉJÀ le droit de lire — ce n'est pas un annuaire, et
+     `list_tenant_members` reste réservée aux administrateurs. `proposed_by` cesse d'être lu là où
+     il ne servait à rien.
+  8. Cas 7 : la borne de la recette est ÉCRITE (`specs/todo/09-parcours-e2e.md`) — la recette cesse
+     de tourner sur cette base au premier client payant, pas « quand on aura le temps ».
+
+[ALERTE]
+  - **UNE VERSION PUBLIÉE CESSE D'ÊTRE REPRODUCTIBLE DÈS QU'ON AJOUTE UN COMPTE.** Mesuré, pas
+    supposé : la version `c6033eb3` (empreinte `6d5de917d09b`) ne retrouvait plus la sienne. Ses
+    chiffres n'avaient pas bougé — son tenant avait gagné UN compte et UNE période depuis. Le
+    snapshot embarque TOUT le référentiel du tenant, y compris ce qu'aucun calcul n'a touché.
+    La promesse d'auditabilité (« rejouer une version publiée rend la même empreinte ») est donc
+    FAUSSE aujourd'hui. Contournement en place : l'extraction reprend le référentiel tel qu'il
+    était (`created_at <= published_at`), et les deux versions se sont alors reconstruites.
+    **ARBITRAGE OUVERT, non tranché** : restreindre le snapshot au référentiel effectivement
+    utilisé corrigerait la cause, mais changerait l'empreinte de toute version publiée. Défaut
+    ANTÉRIEUR à ce chantier.
+  - **LA PASSATION PRÉCÉDENTE ANNONÇAIT « LE PREMIER CHIFFRE RÉEL DE TARJIH ». C'EST INEXACT.**
+    Les 1 200,50 MAD d'empreinte `6d5de917d09b` appartiennent au tenant **« Recette e2e »**. Le
+    tenant réel « Afrique Stratégie » porte une version en `draft`, 1 hypothèse approuvée et
+    **ZÉRO montant**. Tarjih n'a jamais produit de chiffre pour un tenant réel — seulement pour
+    sa propre recette.
+  - **FAILLE FERMÉE, ET LA LEÇON COMPTE PLUS QUE LA FAILLE** : le rôle `anon` détenait sept
+    privilèges sur `budget_version_states` depuis le 2026-09-02. Aucune fuite constatée (la vue
+    est `security_invoker`, un anonyme n'a ni `auth.uid()` ni appartenance), mais l'invariant du
+    projet dit « aucun privilège », pas « ne peut rien lire ». Le contrôle qui l'a trouvée existait
+    depuis le début et disait vrai : **personne ne l'avait rejoué**. Règle qui en découle : après
+    CHAQUE migration, rejouer les SEPT fichiers pgTAP, pas seulement celui du sujet traité.
+
+[BLOQUE]
+  Rien.
+
+[NEXT]
+  1. **Trancher l'arbitrage de l'empreinte** (alerte n°1) : le snapshot doit-il se restreindre au
+     référentiel réellement employé ? Cela corrige l'auditabilité et casse les empreintes déjà
+     publiées. Rien ne presse tant qu'aucun client réel n'a de version publiée — ce qui est le cas.
+  2. **Faire produire à Tarjih un chiffre pour un TENANT RÉEL** (alerte n°2). C'est le seul jalon
+     produit qui manque, et il ne demande plus de code.
+  3. Task 08 (exports RBAC), puis 10 (déploiement preview).
+  4. Modèle économique pilote (`prd.md:138`) : question de découverte client, PAS une dette
+     technique. Déclencheur : premier client réel. Elle bloquait l'arrondi ; elle ne bloque plus
+     rien depuis que la convention est actée.
+
+[MEMO]
+  Pièges payés cette session :
+  1. **CE PRODUIT A DEUX SERVICES À DÉPLOYER, PAS UN.** Déployer `tarjih-web` sans
+     `tarjih-calculation` laisse le moteur rendre l'ancienne forme : la recette a échoué sur
+     « le service de calcul n'a pas répondu », alors que le service répondait parfaitement — c'est
+     le contrôle de conformité qui refusait sa réponse. Il a bien fonctionné : il a empêché une
+     publication sans traçabilité.
+  2. **Une migration qui change la SIGNATURE d'une fonction casse les tests qui l'appellent.**
+     Le fichier `06` a dû être repris en même temps. C'est voulu : laisser l'ancienne signature
+     aurait laissé vivre un chemin publiant sans origine.
+  3. **Réécrire un bloc SQL « de mémoire » change des messages d'erreur sur lesquels des tests
+     s'appuient.** Deux l'ont été, rattrapés par un `difflib` entre l'ancienne et la nouvelle
+     fonction. Comparer, ne pas relire.
+  4. **Le garde anti-fuite exige un filtre `jq` à champ unique** sur une réponse d'API de la
+     plate-forme de déploiement — même quand la commande n'imprime qu'un code HTTP. S'y conformer,
+     ne pas le contourner.
+  5. **PowerShell rend un code de sortie 1 quand un exécutable natif écrit sur stderr**, même pour
+     un simple avertissement Node. La recette Playwright était VERTE (6/6) avec un code 1.
+  6. **Un montant exact se sérialise en forme canonique** (zéros de fin retirés) : `1000.50`
+     devient `1000.5`. Deux tests écrits avec l'autre attente ont dû être corrigés — l'attente
+     était arbitraire, pas le code.
+  7. **`plan(n)` de pgTAP ne pardonne pas** : compter les contrôles à la main, ou le fichier
+     signale un écart même quand tout passe.
+  8. **Un contrôle d'isolation joué en `postgres` ne prouve RIEN** : la RLS ne s'applique pas à un
+     superutilisateur. `set local role authenticated` est obligatoire, comme le fait le fichier 02.
+```
+
+---
+
 ## 2026-09-04 — Tarjih produit son premier chiffre, et une recette navigateur le rejoue
 
 ```
