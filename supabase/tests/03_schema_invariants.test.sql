@@ -6,13 +6,13 @@ select plan(4);
 
 select is(
   (select count(*) from pg_class table_definition join pg_namespace schema_definition on schema_definition.oid = table_definition.relnamespace where schema_definition.nspname = 'public' and table_definition.relkind = 'r'),
-  14::bigint,
-  'le schéma public contient exactement les quatorze tables V1'
+  15::bigint,
+  'le schéma public contient exactement les quinze tables V1'
 );
 
 select is(
   (select count(*) from pg_class table_definition join pg_namespace schema_definition on schema_definition.oid = table_definition.relnamespace where schema_definition.nspname = 'public' and table_definition.relkind = 'r' and table_definition.relrowsecurity),
-  14::bigint,
+  15::bigint,
   'RLS est activée sur chaque table V1'
 );
 
