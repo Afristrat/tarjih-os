@@ -26,6 +26,10 @@ type DecisionRow = {
   reason: string;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 const DECISION_LABELS: Record<string, string> = {
   approved: "Approuvée",
   rejected: "Rejetée",
@@ -53,6 +57,19 @@ export default async function HypothesisPage({
   // « introuvable » sans jamais laisser deviner que la ligne existe ailleurs.
   if (hypothesisError || !hypothesis) {
     notFound();
+  }
+
+  // Qui a proposé. La fonction ne rend que les auteurs des hypothèses que
+  // l'appelant a le droit de lire : elle nomme, elle n'ouvre pas l'annuaire.
+  const authorsResult = await supabase.rpc("list_hypothesis_authors", {
+    target_tenant_id: context.tenantId,
+  });
+
+  const authorEmails = new Map<string, string>();
+  for (const row of authorsResult.data ?? []) {
+    if (isRecord(row) && typeof row.user_id === "string" && typeof row.email === "string") {
+      authorEmails.set(row.user_id, row.email);
+    }
   }
 
   const [versionResult, dimensionResult, decisionsResult, grantsResult] = await Promise.all([
@@ -285,8 +302,15 @@ export default async function HypothesisPage({
             </dd>
             <dt>Proposée</dt>
             <dd>
-              {mine ? "Par vous" : "Par un contributeur de la dimension"} le{" "}
-              {new Date(hypothesis.created_at).toLocaleDateString("fr-FR")}
+              {/* Nommer l'auteur : celui qui décide engage sa responsabilité sur
+                  le chiffre, et `hypothesis_decisions.decided_by` le nomme, lui,
+                  pour toujours. L'anonymat d'un seul côté était une asymétrie,
+                  pas une protection. Si le nom manque, on ne prétend rien. */}
+              {mine
+                ? "Par vous"
+                : (authorEmails.get(hypothesis.proposed_by) ??
+                  "Par un contributeur de la dimension")}{" "}
+              le {new Date(hypothesis.created_at).toLocaleDateString("fr-FR")}
             </dd>
             <dt>Dernière écriture</dt>
             <dd>{new Date(hypothesis.updated_at).toLocaleDateString("fr-FR")}</dd>

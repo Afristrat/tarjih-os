@@ -45,6 +45,12 @@ export type HypothesisFacts = {
   periodId: string | null;
   /** `null` pour une saisie directe ; sinon l'inducteur employé. */
   driver: string | null;
+  /**
+   * Nombre de périodes que porte la valeur. Seule la première est décrite par
+   * les autres champs : ce compte existe pour que l'écran puisse le DIRE plutôt
+   * que de montrer une part en la faisant passer pour le tout.
+   */
+  periodCount: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,6 +138,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
     accountCode: null,
     amount: null,
     driver: null,
+    periodCount: 0,
     periodId: null,
   };
 
@@ -140,6 +147,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
   }
 
   if (value.type === "decimal" && typeof value.value === "string") {
+    // Forme historique : ni compte ni période, donc aucune période à compter.
     return { ...empty, amount: value.value };
   }
 
@@ -157,6 +165,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
         // moteur. On montre l'inducteur tel qu'il a été saisi.
         amount: volume !== null && unitPrice !== null ? `${volume} × ${unitPrice}` : null,
         driver,
+        periodCount: value.periods.length,
         periodId: typeof first.period_id === "string" ? first.period_id : null,
       };
     }
@@ -176,6 +185,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
       // montre l'inducteur, pas un chiffre qui n'engagerait personne.
       amount: rate !== null && baseAccountCode !== null ? `${rate} × ${baseAccountCode}` : null,
       driver,
+      periodCount: value.period_ids.length,
       periodId: typeof first === "string" ? first : null,
     };
   }
@@ -187,6 +197,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
         accountCode,
         amount: typeof first.amount === "string" ? first.amount : null,
         driver,
+        periodCount: value.amounts.length,
         periodId: typeof first.period_id === "string" ? first.period_id : null,
       };
     }

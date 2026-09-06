@@ -18,18 +18,30 @@ import json
 from decimal import Decimal
 from typing import Any
 
-from tarjih_calculation.contracts import AMOUNT_SCALE, BudgetValue, Snapshot
+from tarjih_calculation.contracts import BudgetValue, Snapshot, to_publishable
 
 
 def normalize_amount(amount: Decimal) -> str:
-    """Rend un montant sous une forme unique, à l'échelle de `numeric(24, 6)`.
+    """Rend un montant publiable sous une forme unique, à l'échelle de la colonne.
 
-    `quantize` fixe l'échelle ; le `+ Decimal(0)` qui suit retire le zéro négatif
-    (`-0.000000`), qui hacherait différemment de `0.000000` alors qu'il désigne
-    exactement le même montant.
+    L'arrondi appartient à `to_publishable` : cette fonction ne fait que le
+    mettre en chaîne. Elle ne convient pas à un montant qui doit rester exact —
+    une part d'hypothèse, par exemple : voir `format_exact`.
     """
-    quantized = amount.quantize(Decimal(1).scaleb(-AMOUNT_SCALE)) + Decimal(0)
-    return format(quantized, "f")
+    return format(to_publishable(amount), "f")
+
+
+def format_exact(amount: Decimal) -> str:
+    """Met un montant en chaîne SANS rien arrondir ni tronquer.
+
+    Les parts d'hypothèses ne sont pas des montants publiables : leur exactitude
+    est ce qui rend vraie l'égalité « arrondi de la somme des parts = montant
+    publié ». Les passer par `normalize_amount` les amputerait en silence.
+
+    La notation scientifique (`1E+3`), que `str()` produit selon l'exposant, est
+    écartée : la colonne cible est un `numeric` et le lecteur est un humain.
+    """
+    return format(amount.normalize() + Decimal(0), "f")
 
 
 def _digest(payload: Any) -> str:

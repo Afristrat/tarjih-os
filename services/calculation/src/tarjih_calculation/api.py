@@ -18,7 +18,7 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from tarjih_calculation.canonical import normalize_amount
+from tarjih_calculation.canonical import format_exact, normalize_amount
 from tarjih_calculation.contracts import SnapshotError
 from tarjih_calculation.engine import ENGINE_VERSION, calculate
 
@@ -86,6 +86,20 @@ async def calculate_endpoint(
                     "amount": normalize_amount(value.amount),
                 }
                 for value in result.values
+            ],
+            # La part de chaque hypothèse dans chaque montant. Exacte et non
+            # arrondie : c'est son arrondi, une fois sommée, qui donne le
+            # montant publié. L'arrondir ici ferait des parts qui ne somment
+            # pas au total qu'elles expliquent.
+            "sources": [
+                {
+                    "dimension_id": source.dimension_id,
+                    "account_id": source.account_id,
+                    "period_id": source.period_id,
+                    "hypothesis_id": source.hypothesis_id,
+                    "amount": format_exact(source.amount),
+                }
+                for source in result.sources
             ],
         },
     )

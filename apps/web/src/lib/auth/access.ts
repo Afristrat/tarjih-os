@@ -85,3 +85,29 @@ export function resolveMembership(
     membership: requestedMembership ?? activeMemberships[0],
   };
 }
+
+/**
+ * Distingue une panne du service d'authentification d'un refus d'identifiants.
+ *
+ * Sans cette distinction, une panne de GoTrue s'affiche « l'adresse e-mail ou le
+ * mot de passe est incorrect » — c'est arrivé en production, sur un 500
+ * (`converting NULL to string is unsupported`). L'utilisateur croit alors son
+ * mot de passe faux, en demande la réinitialisation, et ce flux passe par le
+ * même service en panne.
+ *
+ * Ce que cette fonction ne fait PAS, et ne doit jamais faire : distinguer une
+ * adresse inconnue d'un mot de passe faux. Cela permettrait d'énumérer les
+ * comptes. Dire qu'un service est indisponible n'apprend rien sur personne.
+ *
+ * Une erreur sans statut — une coupure réseau, par exemple — est une panne : rien
+ * n'a vérifié le mot de passe, donc rien ne permet de le mettre en doute.
+ */
+export function signInFailureReason(error: { status?: number }): string {
+  const status = error.status;
+
+  if (typeof status === "number" && status >= 400 && status < 500) {
+    return "invalid-credentials";
+  }
+
+  return "service-unavailable";
+}

@@ -27,7 +27,14 @@ type ValueRow = {
   amount: string;
   currency: string;
   dimension_id: string;
+  id: string;
   period_id: string;
+};
+
+/** La part d'une hypothèse dans un montant publié, telle qu'on la montre. */
+type SourceRow = {
+  amount: string;
+  label: string;
 };
 
 type RunRow = {
@@ -92,6 +99,47 @@ function formatAmount(amount: string, currency: string): string {
   }).format(parsed);
 }
 
+/**
+ * D'où vient ce chiffre.
+ *
+ * `details` natif plutôt qu'un dépliant en JavaScript : l'origine d'un montant
+ * doit rester lisible sans script, et l'élément gère seul son état, son clavier
+ * et son accessibilité.
+ *
+ * Les parts sont affichées telles que le moteur les a calculées — non arrondies.
+ * Leur somme arrondie égale le montant publié ; les afficher arrondies ferait
+ * une addition fausse sous les yeux d'un DAF.
+ */
+function ValueOrigin({
+  currency,
+  sources,
+}: {
+  currency: string;
+  sources: SourceRow[];
+}): ReactElement {
+  if (sources.length === 0) {
+    // Impossible depuis la migration `trace_value_sources` : la publication
+    // refuse un montant sans origine. Reste vrai des montants publiés avant.
+    return <span className="origin-missing">Origine non enregistrée</span>;
+  }
+
+  return (
+    <details className="origin-details">
+      <summary>
+        {sources.length === 1 ? "1 hypothèse" : `${sources.length} hypothèses`}
+      </summary>
+      <ul className="origin-list">
+        {sources.map((source) => (
+          <li key={source.label}>
+            <span>{source.label}</span>
+            <span className="origin-share">{formatAmount(source.amount, currency)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export default async function ConsolidationPage({
   params,
   searchParams,
@@ -126,7 +174,7 @@ export default async function ConsolidationPage({
   const [values, runs, dimensions, accounts, periods] = await Promise.all([
     supabase
       .from("budget_values")
-      .select("dimension_id, account_id, period_id, amount, currency")
+      .select("id, dimension_id, account_id, period_id, amount, currency")
       .eq("tenant_id", context.tenantId)
       .eq("version_id", versionId),
     supabase
@@ -177,6 +225,7 @@ export default async function ConsolidationPage({
   for (const row of values.data ?? []) {
     if (
       isRecord(row) &&
+      typeof row.id === "string" &&
       typeof row.dimension_id === "string" &&
       typeof row.account_id === "string" &&
       typeof row.period_id === "string" &&
@@ -187,8 +236,61 @@ export default async function ConsolidationPage({
         amount: String(row.amount),
         currency: row.currency,
         dimension_id: row.dimension_id,
+        id: row.id,
         period_id: row.period_id,
       });
+    }
+  }
+
+  // L'origine de chaque montant. La requête vient après celle des montants :
+  // `budget_value_sources` ne porte pas la version, elle porte le montant — et
+  // c'est voulu, le triplet appartient au montant et ne doit pas être dupliqué.
+  const sourcesByValue = new Map<string, SourceRow[]>();
+  if (publishedValues.length > 0) {
+    const [sources, hypotheses] = await Promise.all([
+      supabase
+        .from("budget_value_sources")
+        .select("budget_value_id, hypothesis_id, amount")
+        .eq("tenant_id", context.tenantId)
+        .in(
+          "budget_value_id",
+          publishedValues.map((value) => value.id),
+        ),
+      supabase
+        .from("hypotheses")
+        .select("id, parameter_key, unit")
+        .eq("tenant_id", context.tenantId)
+        .eq("version_id", versionId),
+    ]);
+
+    const hypothesisLabels = new Map<string, string>();
+    for (const row of hypotheses.data ?? []) {
+      if (isRecord(row) && typeof row.id === "string" && typeof row.parameter_key === "string") {
+        hypothesisLabels.set(row.id, row.parameter_key);
+      }
+    }
+
+    for (const row of sources.data ?? []) {
+      if (
+        !isRecord(row) ||
+        typeof row.budget_value_id !== "string" ||
+        typeof row.hypothesis_id !== "string"
+      ) {
+        continue;
+      }
+
+      const parts = sourcesByValue.get(row.budget_value_id) ?? [];
+      parts.push({
+        amount: String(row.amount),
+        // Une hypothèse dont le libellé manque n'est pas masquée : son
+        // identifiant vaut mieux qu'une ligne disparue.
+        label: hypothesisLabels.get(row.hypothesis_id) ?? row.hypothesis_id,
+      });
+      sourcesByValue.set(row.budget_value_id, parts);
+    }
+
+    for (const parts of sourcesByValue.values()) {
+      parts.sort((left, right) => left.label.localeCompare(right.label, "fr"));
     }
   }
 
@@ -281,6 +383,7 @@ export default async function ConsolidationPage({
                     <th className="amount-cell" scope="col">
                       Montant
                     </th>
+                    <th scope="col">Origine</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -292,6 +395,12 @@ export default async function ConsolidationPage({
                       <td>{accountLabels.get(value.account_id) ?? "—"}</td>
                       <td>{periodLabels.get(value.period_id) ?? "—"}</td>
                       <td className="amount-cell">{formatAmount(value.amount, value.currency)}</td>
+                      <td>
+                        <ValueOrigin
+                          currency={value.currency}
+                          sources={sourcesByValue.get(value.id) ?? []}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -303,6 +412,7 @@ export default async function ConsolidationPage({
                     <td className="amount-cell">
                       {formatAmount(total.toFixed(6), currency)}
                     </td>
+                    <td />
                   </tr>
                 </tfoot>
               </table>

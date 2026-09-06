@@ -54,3 +54,19 @@ test("la forme historique reste lisible mais n'est pas calculable", () => {
   assert.equal(isCalculable(legacy), false);
   assert.equal(isCalculable(buildDirectValue("61", PERIOD, "10")), true);
 });
+
+test("une hypothèse portant plusieurs périodes le dit au lieu de n'en montrer qu'une", () => {
+  // L'écran n'affiche que la première période. Tant qu'aucun chemin n'en produit
+  // deux, le raccourci tient — mais s'il en arrivait une, un affichage tronqué
+  // SANS le dire ferait prendre une part pour le tout, sur un chiffre financier.
+  const deuxPeriodes = {
+    account_code: "61",
+    amounts: [
+      { period_id: PERIOD, amount: "10" },
+      { period_id: "99999999-9999-4999-8999-999999999999", amount: "20" },
+    ],
+  };
+
+  assert.equal(readHypothesisFacts(deuxPeriodes).periodCount, 2);
+  assert.equal(readHypothesisFacts(buildDirectValue("61", PERIOD, "10")).periodCount, 1);
+});

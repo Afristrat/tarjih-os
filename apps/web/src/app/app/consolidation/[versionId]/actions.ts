@@ -59,6 +59,16 @@ export async function publishCalculation(formData: FormData): Promise<never> {
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("publish_calculation", {
+    // Les parts partent avec les montants : la fonction SQL écrit les deux dans
+    // la même transaction, ou n'écrit rien. Aucun montant publié ne peut donc
+    // exister sans que l'on sache dire de quelles hypothèses il vient.
+    computed_sources: outcome.sources.map((source) => ({
+      account_id: source.accountId,
+      amount: source.amount,
+      dimension_id: source.dimensionId,
+      hypothesis_id: source.hypothesisId,
+      period_id: source.periodId,
+    })),
     computed_values: outcome.values.map((value) => ({
       account_id: value.accountId,
       amount: value.amount,

@@ -139,7 +139,17 @@ export function versionStatusTone(status: string): StateTone {
  * pas disparaître de l'écran.
  */
 export function formatHypothesisValue(value: unknown): string {
-  return readHypothesisFacts(value).amount ?? (JSON.stringify(value) ?? "");
+  const facts = readHypothesisFacts(value);
+  const shown = facts.amount ?? (JSON.stringify(value) ?? "");
+
+  // Seule la première période est décrite. Tant qu'aucun chemin de saisie n'en
+  // produit deux, le cas ne se présente pas ; s'il se présentait, montrer une
+  // part en la faisant passer pour le tout serait un mensonge sur un chiffre.
+  if (facts.periodCount > 1) {
+    return `${shown} (1re de ${facts.periodCount} périodes)`;
+  }
+
+  return shown;
 }
 
 // Le refus vient de la base, qui distingue ses cas par des SQLSTATE ; l'écran

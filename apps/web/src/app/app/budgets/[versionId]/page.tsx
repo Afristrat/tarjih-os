@@ -37,7 +37,6 @@ type HypothesisRow = {
   dimension_id: string;
   id: string;
   parameter_key: string;
-  proposed_by: string;
   status: string;
   unit: string;
   value: unknown;
@@ -79,7 +78,7 @@ export default async function BudgetVersionPage({
     supabase.from("budget_cycles").select("id, name").eq("id", version.cycle_id).maybeSingle(),
     supabase
       .from("hypotheses")
-      .select("id, dimension_id, parameter_key, value, unit, status, proposed_by")
+      .select("id, dimension_id, parameter_key, value, unit, status")
       .eq("tenant_id", context.tenantId)
       .eq("version_id", versionId)
       .order("parameter_key"),
