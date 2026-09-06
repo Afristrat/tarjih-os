@@ -7,7 +7,9 @@ from copy import deepcopy
 from decimal import Decimal
 from typing import Any
 
-from tarjih_calculation import ENGINE_VERSION, SnapshotError, calculate
+from tarjih_calculation import ENGINE_VERSION, SnapshotError, calculate, identities
+from tarjih_calculation.contracts import ValueSource, parse_snapshot
+from tarjih_calculation.resolvers import resolve
 
 TENANT = "11111111-1111-4111-8111-111111111111"
 VERSION = "22222222-2222-4222-8222-222222222222"
@@ -299,6 +301,48 @@ class Identites(unittest.TestCase):
         with self.assertRaises(SnapshotError) as caught:
             calculate(snapshot(hypotheses=[direct_hypothesis(amount="1.1234567")]))
         self.assertEqual(caught.exception.code, "amount_scale")
+
+
+class Tracabilite(unittest.TestCase):
+    """Task 07, critere 5 : d'ou vient ce chiffre."""
+
+    def test_un_montant_porte_la_part_de_chaque_hypothese(self) -> None:
+        result = calculate(
+            snapshot(
+                hypotheses=[
+                    direct_hypothesis(amount="1000.50"),
+                    direct_hypothesis(hypothesis_id=HYP_B, amount="99.50"),
+                ]
+            )
+        )
+
+        self.assertEqual(len(result.values), 1)
+        parts = {
+            source.hypothesis_id: source.amount
+            for source in result.sources
+            if (source.dimension_id, source.account_id, source.period_id)
+            == (DEPARTMENT, COST_ACCOUNT, Q1)
+        }
+        self.assertEqual(parts, {HYP_A: Decimal("1000.50"), HYP_B: Decimal("99.50")})
+
+    def test_des_parts_qui_ne_somment_pas_au_montant_publie_sont_refusees(self) -> None:
+        payload = snapshot()
+        parsed = parse_snapshot(payload)
+        contributions = resolve(parsed, parsed.hypotheses)
+        values = calculate(payload).values
+        falsifiees = (
+            ValueSource(
+                dimension_id=DEPARTMENT,
+                account_id=COST_ACCOUNT,
+                period_id=Q1,
+                hypothesis_id=HYP_A,
+                amount=Decimal("1"),
+            ),
+        )
+
+        with self.assertRaises(SnapshotError) as caught:
+            identities.check(parsed, contributions, values, falsifiees)
+        self.assertEqual(caught.exception.code, "identity_sources")
 
 
 if __name__ == "__main__":

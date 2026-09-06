@@ -21,6 +21,8 @@ from tarjih_calculation.contracts import (
     BudgetValue,
     Snapshot,
     SnapshotError,
+    ValueSource,
+    to_publishable,
 )
 from tarjih_calculation.resolvers import Contribution
 
@@ -35,7 +37,10 @@ def _fail(code: str, message: str) -> None:
 
 
 def check(
-    snapshot: Snapshot, contributions: list[Contribution], values: tuple[BudgetValue, ...]
+    snapshot: Snapshot,
+    contributions: list[Contribution],
+    values: tuple[BudgetValue, ...],
+    sources: tuple[ValueSource, ...],
 ) -> None:
     """Vérifie le résultat avant publication. Lève à la première incohérence."""
     account_ids = {account.id for account in snapshot.accounts}
@@ -78,3 +83,35 @@ def check(
             "identity_conservation",
             f"la somme publiée s'écarte de la somme calculée de {total_out - total_in}",
         )
+
+    # Traçabilité : chaque montant publié est l'arrondi de la somme de ses parts.
+    # Sans ce contrôle, la table des sources pourrait raconter une autre histoire
+    # que le chiffre qu'elle prétend expliquer — pire que pas de traçabilité.
+    parts: dict[tuple[str, str, str], Decimal] = {}
+    for source in sources:
+        key = (source.dimension_id, source.account_id, source.period_id)
+        parts[key] = parts.get(key, Decimal(0)) + source.amount
+
+    published = {
+        (value.dimension_id, value.account_id, value.period_id): value.amount
+        for value in values
+    }
+
+    for key, total in parts.items():
+        if key not in published:
+            _fail(
+                "identity_sources",
+                "une part désigne un montant qui n'est pas publié",
+            )
+        if to_publishable(total) != published[key]:
+            _fail(
+                "identity_sources",
+                f"les parts d'un montant somment à {total}, publié {published[key]}",
+            )
+
+    for key in published:
+        if key not in parts:
+            _fail(
+                "identity_sources",
+                "un montant publié ne porte aucune part : son origine serait perdue",
+            )

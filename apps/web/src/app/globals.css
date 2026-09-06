@@ -711,6 +711,50 @@ h2 {
   font-weight: 600;
 }
 
+/* Origine d'un montant publié : d'où vient ce chiffre.
+
+   Le dépliant est un `details` natif — pas de script, pas d'état à gérer, le
+   clavier et les lecteurs d'écran fonctionnent sans rien y ajouter. */
+.origin-details > summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.origin-details[open] > summary {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.origin-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.origin-list li {
+  border-top: 1px solid rgb(207 211 199 / 55%);
+  display: flex;
+  font-size: 0.78rem;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 5px 0;
+}
+
+/* Tabulaire : les parts se lisent en colonne, chiffre sous chiffre. */
+.origin-share {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.origin-missing {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
 .dimension-cell span {
   color: var(--muted);
   display: block;

@@ -7,31 +7,24 @@ si le besoin d'exposition est prouvé (task 06 : « cœur pur avant FastAPI »).
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from typing import Any, Final
 
 from tarjih_calculation import identities
 from tarjih_calculation.canonical import snapshot_hash, values_hash
 from tarjih_calculation.contracts import (
-    AMOUNT_SCALE,
     BudgetValue,
     CalculationResult,
     Hypothesis,
     Snapshot,
     SnapshotError,
+    ValueSource,
     parse_snapshot,
+    to_publishable,
 )
 from tarjih_calculation.resolvers import Contribution, resolve
 
 ENGINE_VERSION: Final[str] = "1.0.0"
-
-# Un produit volume × prix dépasse presque toujours six décimales : la valeur
-# publiable doit donc être arrondie à l'échelle de la colonne. L'arrondi
-# commercial (0,5 s'éloigne de zéro) est la convention retenue, explicitement,
-# faute de règle métier dans les specs.
-# ponytail: convention d'arrondi provisoire ; à réexaminer quand le modèle
-# économique pilote sera tranché (specs/_source/prd.md:138).
-_QUANTUM: Final[Decimal] = Decimal(1).scaleb(-AMOUNT_SCALE)
 
 
 def _approved_only(snapshot: Snapshot) -> tuple[Hypothesis, ...]:
@@ -68,10 +61,38 @@ def _aggregate(contributions: list[Contribution]) -> tuple[BudgetValue, ...]:
             dimension_id=dimension_id,
             account_id=account_id,
             period_id=period_id,
-            # `+ Decimal(0)` retire le zéro négatif, qui hacherait différemment.
-            amount=amount.quantize(_QUANTUM, rounding=ROUND_HALF_UP) + Decimal(0),
+            amount=to_publishable(amount),
         )
         for (dimension_id, account_id, period_id), amount in sorted(totals.items())
+    )
+
+
+def _sources(contributions: list[Contribution]) -> tuple[ValueSource, ...]:
+    """Somme les contributions par hypothèse, sans arrondir.
+
+    Une même hypothèse peut apporter plusieurs fois sur le même triplet (deux
+    lignes de `amounts` sur la même période) : ses apports se cumulent en une
+    seule part, sinon la traçabilité rendrait deux lignes pour une seule cause.
+    """
+    parts: dict[tuple[str, str, str, str], Decimal] = {}
+    for contribution in contributions:
+        key = (
+            contribution.dimension_id,
+            contribution.account_id,
+            contribution.period_id,
+            contribution.hypothesis_id,
+        )
+        parts[key] = parts.get(key, Decimal(0)) + contribution.amount
+
+    return tuple(
+        ValueSource(
+            dimension_id=dimension_id,
+            account_id=account_id,
+            period_id=period_id,
+            hypothesis_id=hypothesis_id,
+            amount=amount,
+        )
+        for (dimension_id, account_id, period_id, hypothesis_id), amount in sorted(parts.items())
     )
 
 
@@ -88,7 +109,8 @@ def calculate(payload: Any) -> CalculationResult:
     input_hash = snapshot_hash(snapshot)
     contributions = resolve(snapshot, _approved_only(snapshot))
     values = _aggregate(contributions)
-    identities.check(snapshot, contributions, values)
+    sources = _sources(contributions)
+    identities.check(snapshot, contributions, values, sources)
 
     return CalculationResult(
         engine_version=ENGINE_VERSION,
@@ -96,4 +118,5 @@ def calculate(payload: Any) -> CalculationResult:
         input_hash=input_hash,
         output_hash=values_hash(values),
         values=values,
+        sources=sources,
     )

@@ -37,6 +37,7 @@ Tarjih est un monolithe web Next.js adossé à Supabase pour les transactions, l
 | `hypothesis_decisions` | décisions humaines append-only | `id`, `tenant_id`, `hypothesis_id`, `decision`, `decided_by`, `reason`, `created_at` |
 | `calculation_runs` | exécutions Python | `id`, `tenant_id`, `version_id`, `engine_version`, `input_hash`, `output_hash`, `status` |
 | `budget_values` | résultats publiés | `id`, `tenant_id`, `version_id`, `calculation_run_id`, `dimension_id`, `account_id`, `period_id`, `amount`, `currency` |
+| `budget_value_sources` | part exacte de chaque hypothèse dans un montant publié | `id`, `tenant_id`, `budget_value_id`, `hypothesis_id`, `amount` |
 | `audit_events` | piste d’audit append-only | `id`, `tenant_id`, `actor_id`, `action`, `object_type`, `object_id`, `before_hash`, `after_hash`, `created_at` |
 | `exports` | demandes et artefacts filtrés | `id`, `tenant_id`, `requested_by`, `version_id`, `scope_hash`, `file_hash`, `status`, `expires_at` |
 
@@ -93,9 +94,16 @@ Le rôle ne remplace pas les grants dimensionnels. Un administrateur technique n
 4. Il appelle le moteur Python avec `engine_version` et un identifiant idempotent.
 5. Python valide le schéma, calcule et retourne résultats + `output_hash`.
 6. Le backend réconcilie les identités comptables et le périmètre.
-7. Une transaction insère les valeurs, marque le run réussi et publie la version.
+7. Une transaction insère les valeurs ET la part de chaque hypothèse dans chacune,
+   marque le run réussi et publie la version.
 8. En cas d’échec, aucun `budget_value` publié n’est visible.
+9. Un montant sans part, une part orpheline ou une part citant l’hypothèse d’une
+   autre version font échouer la publication entière.
 ```
+
+L’échelle des montants et celle des parts diffèrent volontairement : un montant publié est un
+`numeric(24, 6)`, une part est un `numeric` exact. L’arrondi de la somme des parts d’un montant
+égale ce montant ; arrondir aussi les parts ferait une addition fausse sous les yeux du lecteur.
 
 Le service Python ne reçoit aucun cookie utilisateur et ne choisit jamais le tenant. Son contrat contient seulement le snapshot déjà filtré et un contexte de service vérifié.
 
@@ -169,6 +177,8 @@ Le monorepo sert uniquement à versionner ensemble les contrats et migrations. A
 - `dimensions(tenant_id, kind, code)` ;
 - `hypotheses(tenant_id, version_id, dimension_id, status)` ;
 - `budget_values(tenant_id, version_id, dimension_id, period_id, account_id)` ;
+- `budget_value_sources(tenant_id, budget_value_id)` et `budget_value_sources(tenant_id, hypothesis_id)` — remonter d’un montant à ses
+  hypothèses, et d’une hypothèse aux montants qu’elle a produits ;
 - `audit_events(tenant_id, created_at desc)`.
 
 Les index sont créés dans les migrations ordinaires. `CREATE INDEX CONCURRENTLY` est réservé aux évolutions de production hors transaction.

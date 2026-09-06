@@ -19,18 +19,26 @@
           "value": {
             "account_code": "61",
             "amounts": [
-              { "amount": "1200.50", "period_id": "77777777-7777-4777-8777-777777777777" }
+              {
+                "amount": "1200.50",
+                "period_id": "77777777-7777-4777-8777-777777777777"
+              }
             ]
           },
           "builder": {
             "fn": "buildDirectValue",
-            "args": ["61", "77777777-7777-4777-8777-777777777777", " 1200,50 "]
+            "args": [
+              "61",
+              "77777777-7777-4777-8777-777777777777",
+              " 1200,50 "
+            ]
           },
           "facts": {
             "accountCode": "61",
             "amount": "1200.50",
             "driver": null,
-            "periodId": "77777777-7777-4777-8777-777777777777"
+            "periodId": "77777777-7777-4777-8777-777777777777",
+            "periodCount": 1
           }
         }
       ],
@@ -53,18 +61,26 @@
           "value": {
             "account_code": "61",
             "amounts": [
-              { "amount": "300", "period_id": "88888888-8888-4888-8888-888888888888" }
+              {
+                "amount": "300",
+                "period_id": "88888888-8888-4888-8888-888888888888"
+              }
             ]
           },
           "builder": {
             "fn": "buildDirectValue",
-            "args": ["61", "88888888-8888-4888-8888-888888888888", "300"]
+            "args": [
+              "61",
+              "88888888-8888-4888-8888-888888888888",
+              "300"
+            ]
           },
           "facts": {
             "accountCode": "61",
             "amount": "300",
             "driver": null,
-            "periodId": "88888888-8888-4888-8888-888888888888"
+            "periodId": "88888888-8888-4888-8888-888888888888",
+            "periodCount": 1
           }
         }
       ],
@@ -97,13 +113,19 @@
           },
           "builder": {
             "fn": "buildVolumePriceValue",
-            "args": ["70", "77777777-7777-4777-8777-777777777777", "100", "12.5"]
+            "args": [
+              "70",
+              "77777777-7777-4777-8777-777777777777",
+              "100",
+              "12.5"
+            ]
           },
           "facts": {
             "accountCode": "70",
             "amount": "100 × 12.5",
             "driver": "volume_price",
-            "periodId": "77777777-7777-4777-8777-777777777777"
+            "periodId": "77777777-7777-4777-8777-777777777777",
+            "periodCount": 1
           }
         }
       ],
@@ -136,13 +158,19 @@
           },
           "builder": {
             "fn": "buildVolumePriceValue",
-            "args": ["70", "77777777-7777-4777-8777-777777777777", "1000000", "0.12345678"]
+            "args": [
+              "70",
+              "77777777-7777-4777-8777-777777777777",
+              "1000000",
+              "0.12345678"
+            ]
           },
           "facts": {
             "accountCode": "70",
             "amount": "1000000 × 0.12345678",
             "driver": "volume_price",
-            "periodId": "77777777-7777-4777-8777-777777777777"
+            "periodId": "77777777-7777-4777-8777-777777777777",
+            "periodCount": 1
           }
         }
       ],
@@ -176,13 +204,19 @@
           },
           "builder": {
             "fn": "buildVolumePriceValue",
-            "args": ["70", "77777777-7777-4777-8777-777777777777", "100", "10"]
+            "args": [
+              "70",
+              "77777777-7777-4777-8777-777777777777",
+              "100",
+              "10"
+            ]
           },
           "facts": {
             "accountCode": "70",
             "amount": "100 × 10",
             "driver": "volume_price",
-            "periodId": "77777777-7777-4777-8777-777777777777"
+            "periodId": "77777777-7777-4777-8777-777777777777",
+            "periodCount": 1
           }
         },
         {
@@ -192,7 +226,9 @@
             "account_code": "61",
             "base_account_code": "70",
             "driver": "percent_of",
-            "period_ids": ["77777777-7777-4777-8777-777777777777"],
+            "period_ids": [
+              "77777777-7777-4777-8777-777777777777"
+            ],
             "rate": "0.35"
           },
           "builder": null,
@@ -200,7 +236,8 @@
             "accountCode": "61",
             "amount": "0.35 × 70",
             "driver": "percent_of",
-            "periodId": "77777777-7777-4777-8777-777777777777"
+            "periodId": "77777777-7777-4777-8777-777777777777",
+            "periodCount": 1
           }
         }
       ],
@@ -218,6 +255,52 @@
           "amount": "350.000000"
         }
       ]
+    },
+    {
+      "name": "saisie directe : une hypothese porte deux periodes",
+      "$comment": "Le moteur boucle sur `amounts` et rend une contribution par periode ; l'interface, elle, n'en decrit que la premiere et doit le dire. Aucun formulaire ne produit encore cette forme, mais le moteur l'accepte : sans ce cas, le pont laisserait les deux cotes diverger en silence.",
+      "model": "direct",
+      "hypotheses": [
+        {
+          "id": "99999999-9999-4999-8999-999999999999",
+          "dimensionId": "33333333-3333-4333-8333-333333333333",
+          "value": {
+            "account_code": "61",
+            "amounts": [
+              {
+                "amount": "1000.00",
+                "period_id": "77777777-7777-4777-8777-777777777777"
+              },
+              {
+                "amount": "250.00",
+                "period_id": "88888888-8888-4888-8888-888888888888"
+              }
+            ]
+          },
+          "builder": null,
+          "facts": {
+            "accountCode": "61",
+            "amount": "1000.00",
+            "driver": null,
+            "periodCount": 2,
+            "periodId": "77777777-7777-4777-8777-777777777777"
+          }
+        }
+      ],
+      "values": [
+        {
+          "dimensionId": "33333333-3333-4333-8333-333333333333",
+          "accountId": "66666666-6666-4666-8666-666666666666",
+          "periodId": "77777777-7777-4777-8777-777777777777",
+          "amount": "1000.000000"
+        },
+        {
+          "dimensionId": "33333333-3333-4333-8333-333333333333",
+          "accountId": "66666666-6666-4666-8666-666666666666",
+          "periodId": "88888888-8888-4888-8888-888888888888",
+          "amount": "250.000000"
+        }
+      ]
     }
   ],
   "rejected": [
@@ -226,13 +309,20 @@
       "model": "direct",
       "builder": {
         "fn": "buildDirectValue",
-        "args": ["61", "77777777-7777-4777-8777-777777777777", "1.1234567"]
+        "args": [
+          "61",
+          "77777777-7777-4777-8777-777777777777",
+          "1.1234567"
+        ]
       },
       "dimensionId": "33333333-3333-4333-8333-333333333333",
       "value": {
         "account_code": "61",
         "amounts": [
-          { "amount": "1.1234567", "period_id": "77777777-7777-4777-8777-777777777777" }
+          {
+            "amount": "1.1234567",
+            "period_id": "77777777-7777-4777-8777-777777777777"
+          }
         ]
       },
       "engineError": "amount_scale"
@@ -242,7 +332,11 @@
       "model": "direct",
       "builder": {
         "fn": "buildDirectValue",
-        "args": ["61", "77777777-7777-4777-8777-777777777777", "1000000000000000000"]
+        "args": [
+          "61",
+          "77777777-7777-4777-8777-777777777777",
+          "1000000000000000000"
+        ]
       },
       "dimensionId": "33333333-3333-4333-8333-333333333333",
       "value": {
@@ -261,7 +355,12 @@
       "model": "driver",
       "builder": {
         "fn": "buildVolumePriceValue",
-        "args": ["70", "77777777-7777-4777-8777-777777777777", "100", "abc"]
+        "args": [
+          "70",
+          "77777777-7777-4777-8777-777777777777",
+          "100",
+          "abc"
+        ]
       },
       "dimensionId": "44444444-4444-4444-8444-444444444444",
       "value": {

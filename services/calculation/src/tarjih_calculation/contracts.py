@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Final
 
 # Modèles de calcul offerts au tenant. Ils partagent un seul pipeline : seule la
@@ -31,12 +31,30 @@ NORMAL_BALANCES: Final[tuple[str, ...]] = ("debit", "credit", "none")
 # Bornes de `numeric(24, 6)` : 24 chiffres significatifs dont 6 décimales.
 AMOUNT_SCALE: Final[int] = 6
 AMOUNT_MAX: Final[Decimal] = Decimal(10) ** 18 - Decimal(1) / (Decimal(10) ** AMOUNT_SCALE)
+_QUANTUM: Final[Decimal] = Decimal(1).scaleb(-AMOUNT_SCALE)
 
 _UUID_RE: Final[re.Pattern[str]] = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 )
 _CURRENCY_RE: Final[re.Pattern[str]] = re.compile(r"^[A-Z]{3}$")
 _ENGINE_VERSION_RE: Final[re.Pattern[str]] = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+def to_publishable(amount: Decimal) -> Decimal:
+    """Arrondit un montant à l'échelle publiable. SEUL endroit qui arrondit.
+
+    La convention est l'arrondi commercial — 0,5 s'éloigne de zéro — celle des
+    tableurs, donc celle que le DAF retrouvera s'il refait le calcul à la main.
+    Elle est ici et nulle part ailleurs : quand cette fonction était dispersée,
+    deux conventions coexistaient dans le moteur (l'agrégation arrondissait en
+    commercial, la sérialisation canonique au pair le plus proche, par défaut de
+    `Decimal`). L'écart ne se voyait pas — la sérialisation ne recevait que des
+    montants déjà arrondis — mais il n'attendait qu'un appelant de plus.
+
+    Le `+ Decimal(0)` retire le zéro négatif (`-0.000000`), qui hacherait
+    différemment de `0.000000` alors qu'il désigne le même montant.
+    """
+    return amount.quantize(_QUANTUM, rounding=ROUND_HALF_UP) + Decimal(0)
 
 
 class SnapshotError(ValueError):
@@ -107,12 +125,31 @@ class BudgetValue:
 
 
 @dataclass(frozen=True, slots=True)
+class ValueSource:
+    """La part d'une hypothèse dans une ligne publiable.
+
+    Le montant est EXACT, jamais arrondi : seule la ligne publiée subit
+    l'échelle `numeric(24, 6)`. Arrondir aussi les parts ferait une somme de
+    parts différente du total affiché, ce qui est précisément ce que cette
+    table existe pour éviter. La garantie tenue est : l'arrondi de la somme des
+    parts d'un triplet égale exactement le montant publié.
+    """
+
+    dimension_id: str
+    account_id: str
+    period_id: str
+    hypothesis_id: str
+    amount: Decimal
+
+
+@dataclass(frozen=True, slots=True)
 class CalculationResult:
     engine_version: str
     model: str
     input_hash: str
     output_hash: str
     values: tuple[BudgetValue, ...]
+    sources: tuple[ValueSource, ...]
 
 
 def _parse_exact(raw: Any, where: str) -> Decimal:

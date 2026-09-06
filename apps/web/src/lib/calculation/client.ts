@@ -18,11 +18,27 @@ export type CalculatedValue = {
   periodId: string;
 };
 
+/**
+ * La part d'une hypothèse dans un montant calculé.
+ *
+ * Le montant est EXACT, non arrondi : c'est son arrondi, une fois les parts
+ * d'un même triplet sommées, qui donne la valeur publiée. Il reste en chaîne
+ * pour la même raison que les montants — un `number` passerait par un flottant.
+ */
+export type CalculatedSource = {
+  accountId: string;
+  amount: string;
+  dimensionId: string;
+  hypothesisId: string;
+  periodId: string;
+};
+
 export type CalculationOutcome =
   | {
       engineVersion: string;
       inputHash: string;
       outputHash: string;
+      sources: CalculatedSource[];
       status: "calculated";
       values: CalculatedValue[];
     }
@@ -77,6 +93,84 @@ function normalizeValues(raw: unknown): CalculatedValue[] | null {
   return values;
 }
 
+function normalizeSources(raw: unknown): CalculatedSource[] | null {
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+
+  const sources: CalculatedSource[] = [];
+  for (const item of raw) {
+    if (
+      !isRecord(item) ||
+      typeof item.dimension_id !== "string" ||
+      typeof item.account_id !== "string" ||
+      typeof item.period_id !== "string" ||
+      typeof item.hypothesis_id !== "string" ||
+      typeof item.amount !== "string"
+    ) {
+      return null;
+    }
+
+    sources.push({
+      accountId: item.account_id,
+      amount: item.amount,
+      dimensionId: item.dimension_id,
+      hypothesisId: item.hypothesis_id,
+      periodId: item.period_id,
+    });
+  }
+
+  return sources;
+}
+
+/**
+ * Décide ce que vaut une réponse du moteur, sans réseau.
+ *
+ * Séparée de l'appel pour être vérifiable telle quelle : c'est ici que se joue
+ * le refus d'un résultat incomplet, et un refus qui ne serait prouvé que par un
+ * appel réseau ne serait pas prouvé du tout.
+ */
+export function readCalculationBody(
+  status: number,
+  ok: boolean,
+  body: unknown,
+): CalculationOutcome {
+  if (status === 422 && isRecord(body) && typeof body.code === "string") {
+    return {
+      code: body.code,
+      message: typeof body.message === "string" ? body.message : "",
+      status: "refused",
+    };
+  }
+
+  if (!ok || !isRecord(body)) {
+    return { detail: `reponse-inattendue-${status}`, status: "unavailable" };
+  }
+
+  const values = normalizeValues(body.values);
+  const sources = normalizeSources(body.sources);
+  if (
+    values === null ||
+    // Un résultat sans origine ne se publie pas : la base le refuserait de
+    // toute façon, mais l'arrêter ici évite d'écrire un run pour rien.
+    sources === null ||
+    typeof body.engine_version !== "string" ||
+    typeof body.input_hash !== "string" ||
+    typeof body.output_hash !== "string"
+  ) {
+    return { detail: "reponse-non-conforme", status: "unavailable" };
+  }
+
+  return {
+    engineVersion: body.engine_version,
+    inputHash: body.input_hash,
+    outputHash: body.output_hash,
+    sources,
+    status: "calculated",
+    values,
+  };
+}
+
 /**
  * Appelle le moteur. Ne lève pas sur un refus métier : un snapshot refusé est
  * une réponse, pas une panne, et l'appelant doit pouvoir la journaliser telle
@@ -115,33 +209,5 @@ export async function requestCalculation(snapshot: unknown): Promise<Calculation
     return { detail: "reponse-illisible", status: "unavailable" };
   }
 
-  if (response.status === 422 && isRecord(body) && typeof body.code === "string") {
-    return {
-      code: body.code,
-      message: typeof body.message === "string" ? body.message : "",
-      status: "refused",
-    };
-  }
-
-  if (!response.ok || !isRecord(body)) {
-    return { detail: `reponse-inattendue-${response.status}`, status: "unavailable" };
-  }
-
-  const values = normalizeValues(body.values);
-  if (
-    values === null ||
-    typeof body.engine_version !== "string" ||
-    typeof body.input_hash !== "string" ||
-    typeof body.output_hash !== "string"
-  ) {
-    return { detail: "reponse-non-conforme", status: "unavailable" };
-  }
-
-  return {
-    engineVersion: body.engine_version,
-    inputHash: body.input_hash,
-    outputHash: body.output_hash,
-    status: "calculated",
-    values,
-  };
+  return readCalculationBody(response.status, response.ok, body);
 }

@@ -133,3 +133,15 @@ test("un refus non répertorié ne se déguise pas en refus connu", () => {
   assert.equal(decisionNoticeFor("42501"), "decision-failed");
   assert.equal(decisionNoticeFor(undefined), "decision-failed");
 });
+
+test("une valeur à plusieurs périodes est affichée sans faire passer la première pour le tout", () => {
+  const deuxPeriodes = {
+    account_code: "61",
+    amounts: [
+      { period_id: "p-1", amount: "10" },
+      { period_id: "p-2", amount: "20" },
+    ],
+  };
+
+  assert.equal(formatHypothesisValue(deuxPeriodes), "10 (1re de 2 périodes)");
+});

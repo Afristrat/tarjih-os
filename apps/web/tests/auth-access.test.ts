@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  signInFailureReason,
   normalizeMemberships,
   resolveMembership,
   type TenantMembership,
@@ -64,4 +65,26 @@ test("l’administration du tenant est indépendante du rôle financier", () => 
     ]),
     [{ ...ACTIVE_A, isTenantAdmin: true, role: "dg" }],
   );
+});
+
+test("une panne du service d’authentification n’est pas annoncée comme un mot de passe faux", () => {
+  // Constaté en production : GoTrue rendait un 500 et l’écran affichait « mot de
+  // passe incorrect ». L’utilisateur change alors un mot de passe correct, par
+  // un flux de réinitialisation qui passe par le service en panne.
+  assert.equal(signInFailureReason({ status: 500 }), "service-unavailable");
+  assert.equal(signInFailureReason({ status: 503 }), "service-unavailable");
+});
+
+test("des identifiants refusés restent des identifiants refusés", () => {
+  // Le refus ne distingue JAMAIS « adresse inconnue » de « mot de passe faux » :
+  // cela permettrait d’énumérer les comptes. Distinguer une panne n’expose rien.
+  assert.equal(signInFailureReason({ status: 400 }), "invalid-credentials");
+  assert.equal(signInFailureReason({ status: 401 }), "invalid-credentials");
+});
+
+test("une erreur sans statut est traitée comme une panne, pas comme un refus", () => {
+  // Une panne réseau n’a pas de statut. La prendre pour un refus ferait douter
+  // l’utilisateur de son mot de passe alors que rien ne l’a vérifié.
+  assert.equal(signInFailureReason({}), "service-unavailable");
+  assert.equal(signInFailureReason({ status: undefined }), "service-unavailable");
 });

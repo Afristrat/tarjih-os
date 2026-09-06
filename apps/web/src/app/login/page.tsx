@@ -10,6 +10,8 @@ const MESSAGES: Record<string, string> = {
   "membership-check-failed": "Les autorisations n’ont pas pu être vérifiées.",
   "missing-credentials": "Renseignez votre adresse e-mail et votre mot de passe.",
   "no-membership": "Aucun tenant actif n’est associé à ce compte.",
+  "service-unavailable":
+    "Le service d’authentification ne répond pas. Vos identifiants n’ont pas pu être vérifiés — réessayez dans un instant.",
   suspended: "Votre accès à cette organisation est suspendu.",
 };
 

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import {
   normalizeMemberships,
   resolveMembership,
+  signInFailureReason,
   TENANT_COOKIE_NAME,
 } from "@/lib/auth/access";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +28,7 @@ export async function login(formData: FormData): Promise<never> {
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
   if (signInError) {
-    redirect("/login?error=invalid-credentials");
+    redirect(`/login?error=${signInFailureReason(signInError)}`);
   }
 
   const {
