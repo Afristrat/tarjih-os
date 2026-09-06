@@ -4,22 +4,24 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
-## 2026-09-06 — Chaque chiffre publié dit d'où il vient, et deux failles sortent du bois
+## 2026-09-06 — Chaque chiffre publié dit d'où il vient, et trois défauts sortent du bois
 
 ```
 [ETAT]
   Repo      : `HEAD` == `origin/master`, worktree propre. Le hash de tête n'est pas figé ici : les
               derniers commits sont documentaires et le font bouger à chaque correction de ce
               fichier — `git log --oneline -1` fait foi. Le repère qui compte est le dernier commit
-              APPLICATIF, `65e73dd`, sur lequel tournent **les deux** services (`tarjih-web` ET
+              APPLICATIF, **`13c8ddb`**, sur lequel tournent **les deux** services (`tarjih-web` ET
               `tarjih-calculation`), conteneurs `healthy` — tags d'image vérifiés, pas déduits du
-              statut. Les commits suivants (`6544cd4`, migration SQL appliquée à la main ;
-              `980dcc8`, ce fichier) ne changent aucune ligne servie par les conteneurs.
+              statut. Les commits documentaires qui suivent ne changent aucune ligne servie.
   Gates     : typecheck 0, lint 0 warning, **58 tests Node**, **36 tests Python**, build OK,
               **90 contrôles pgTAP** sur les SEPT fichiers, joués contre la PRODUCTION en
               begin/rollback, 0 échec. **11 tests Playwright verts** contre `https://tarjih-os.com`.
-  Données   : 3 montants publiés, **0 sans origine**, 3 parts. Tenant réel « Afrique Stratégie » :
-              1 hypothèse, 0 montant — INTACT et recompté après coup.
+  Données   : recomptées à la clôture — **6 montants publiés, 0 sans origine, 8 parts**,
+              6 versions publiées, 7 migrations au registre. Les publications supplémentaires sont
+              le résidu assumé de la recette (chaque passage publie ; une version publiée est
+              immuable, donc rien ne se nettoie — cf. la borne dans `specs/todo/09-parcours-e2e.md`).
+              **Tenant réel « Afrique Stratégie » : 1 hypothèse, 0 montant — INTACT.**
   Migrations: registre à 7 lignes (ajout de `20260906120000`, `20260906130000`, `20260906140000`).
               Les trois rollbacks existent ; celui de la traçabilité a été joué en transaction
               d'essai et prouvé par cinq contrôles avant application.
@@ -119,6 +121,63 @@
      technique. Déclencheur : premier client réel. Elle bloquait l'arrondi ; elle ne bloque plus
      rien depuis que la convention est actée.
 
+[CTX]
+  Session `d60e0c75`, 2026-09-06, CWD `c:\projets\Budget & CFO`. HEAD de référence au démarrage
+  `ae04d44` ; aucune autre session n'a écrit dans le dépôt (vérifié par `fetch` + comparaison).
+
+  Serveur   : `ssh -i ~/.ssh/serveurai_mnemo -o BatchMode=yes serveuria@192.168.100.24`
+              → hostname attendu `serveuria-MS-7D98`. IP dynamique : re-vérifier après reboot.
+  Base      : conteneur `supabase-db-f10v8td71bwii32blb9lalfk` — SEULE des ONZE instances Supabase
+              du serveur à porter les tables Tarjih. NE PAS redeviner.
+  Coolify   : projet `Tarjih` uuid `n3njfl7sfu0hatepq5ihugid`.
+              `tarjih-web` uuid `l3fov9fbnjvrgt5ly75b7g5r` ·
+              `tarjih-calculation` uuid `tuxybsaq9adb6txew2rc6zkr` (alias réseau stable
+              `tarjih-calculation`, non exposé publiquement).
+              **LES DEUX SE DÉPLOIENT ENSEMBLE** — voir MEMO 1.
+
+  Commandes exactes, toutes vérifiées cette session :
+
+  - Gates      : `npm run typecheck` · `npm run lint` · `npm test` · `npm run build` (racine).
+  - Python     : `cd services/calculation && PYTHONPATH=src python -m unittest discover -s tests`
+  - pgTAP      : chaque fichier porte son `begin`/`rollback`, donc rien n'est laissé en base.
+                 `cat supabase/tests/<f>.test.sql | ssh -i ~/.ssh/serveurai_mnemo -o BatchMode=yes \
+                    serveuria@192.168.100.24 'docker exec -i supabase-db-f10v8td71bwii32blb9lalfk \
+                    psql -U postgres -d postgres --set=client_encoding=UTF8 -v ON_ERROR_STOP=1 -f -'`
+                 **Les SEPT fichiers après CHAQUE migration**, jamais seulement celui du sujet.
+  - Migration  : même commande avec `-1` en plus (une seule transaction).
+                 Essai sans rien laisser : concaténer `begin;` + migration + corps du test (privé
+                 de son propre `begin`/`rollback`) + `rollback;`.
+  - Recette    : `& 'C:\Users\amans\.claude\scripts\invoke-secret.ps1' -TimeoutSec 900 \
+                    -Keys TARJIH_E2E_PW_CONTRIB,TARJIH_E2E_PW_DAF,TARJIH_E2E_PW_DG,TARJIH_E2E_PW_INTRUS \
+                    -Command 'Set-Location "C:\projets\Budget & CFO\apps\web"; \
+                              node ./node_modules/playwright/cli.js test'`
+                 `E2E_BASE_URL` surcharge la cible. Le broker coupe à 300 s par défaut : `-TimeoutSec 900`.
+  - Déploiement: `& 'C:\Users\amans\.claude\scripts\invoke-secret.ps1' -Keys COOLIFY_API_TOKEN,COOLIFY_URL \
+                    -Command 'curl.exe -s -X GET -H "Authorization: Bearer $env:COOLIFY_API_TOKEN" \
+                      "$env:COOLIFY_URL/api/v1/deploy?uuid=<uuid>&force=false" \
+                      | jq -r ".deployments[0].message"'`
+                 Guillemets DOUBLES autour de l'en-tête (sinon `$env:` part littéralement) ; le
+                 filtre `jq` à champ unique est EXIGÉ par le garde anti-fuite.
+  - Preuve     : le tag d'image doit valoir le sha du commit —
+                 `docker ps --filter name=<uuid> --format "{{.Image}} {{.Status}}"`. Un `healthy`
+                 seul ne prouve pas ce qui tourne.
+
+  Reconstruction d'origines (one-shot, rejouable) :
+    `scripts/extraire-snapshots-publies.sql` (lecture seule, référentiel daté à `published_at`)
+    → `python scripts/reconstruire-sources.py` (rejeu, écrit du SQL SEULEMENT si l'empreinte
+      recalculée retrouve `calculation_runs.input_hash` ; le rapport va sur stderr)
+    → appliquer le SQL produit. Logique sous tests : `tarjih_calculation.replay`.
+
+  Coffre     : `TARJIH_E2E_PW_CONTRIB|DAF|DG|INTRUS`, `TARJIH_ADMIN_EMAIL`,
+               `TARJIH_ADMIN_TECHNIQUE`, `TARJIH_CALCULATION_SERVICE_TOKEN`. Jamais en clair,
+               toujours par le broker. Le jeu de comptes se repose avec
+               `supabase/seed/e2e-recette.sql` (réexécutable, marqueurs remplacés au runtime) —
+               ce n'est PAS une migration, il ne s'inscrit pas au registre.
+
+  Comptes réels : `a.mansouri@afriquestrategie.com` est le seul DG du tenant « Afrique
+               Stratégie » ; son mot de passe n'est pas au coffre. Ce n'est pas un blocage — la
+               recette a ses propres acteurs et n'emprunte jamais le compte d'une personne réelle.
+
 [MEMO]
   Pièges payés cette session :
   1. **CE PRODUIT A DEUX SERVICES À DÉPLOYER, PAS UN.** Déployer `tarjih-web` sans
@@ -155,6 +214,15 @@
 ---
 
 ## 2026-09-04 — Tarjih produit son premier chiffre, et une recette navigateur le rejoue
+
+> **PÉRIMÉE SUR TROIS POINTS, corrigés par l'entrée du 2026-09-06 — ne pas s'y fier :**
+> 1. « LE PREMIER CHIFFRE RÉEL DE TARJIH » : ces 1 200,50 MAD appartiennent au tenant
+>    **« Recette e2e »**, pas à un tenant client. Le tenant réel n'a toujours aucun montant.
+> 2. La task 07 y est 🟨 : elle est **close** depuis le 2026-09-06, critère 5 compris.
+> 3. L'alerte « rien ne relie un montant à ses hypothèses » est **fermée** par
+>    `public.budget_value_sources`, y compris rétroactivement.
+> Le reste de l'entrée — jeu de recette, pont entre les jumeaux, pièges — reste valable.
+
 
 ```
 [ETAT]
@@ -269,6 +337,11 @@
 ---
 
 ## 2026-09-03 — Tarjih calcule : moteur déterministe, publication atomique, référentiel
+
+> **PÉRIMÉE SUR DEUX POINTS** (entrée du 2026-09-06) : l'alerte « aucun test ne relie les deux
+> jumeaux » est fermée depuis le 2026-09-04 (corpus partagé) ; l'arrondi `ROUND_HALF_UP` n'est
+> plus un marqueur `ponytail:` mais une convention actée et centralisée dans `to_publishable`.
+
 
 > Cette entrée remplace et consolide celles du 2026-09-02 et du 2026-09-03 (première rédaction),
 > dont plusieurs affirmations sont devenues fausses dans la même session (« aucun écran pour les
