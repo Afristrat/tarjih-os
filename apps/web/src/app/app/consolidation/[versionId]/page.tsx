@@ -106,9 +106,10 @@ function formatAmount(amount: string, currency: string): string {
  * doit rester lisible sans script, et l'élément gère seul son état, son clavier
  * et son accessibilité.
  *
- * Les parts sont affichées telles que le moteur les a calculées — non arrondies.
- * Leur somme arrondie égale le montant publié ; les afficher arrondies ferait
- * une addition fausse sous les yeux d'un DAF.
+ * Les parts sont affichées telles que le moteur les a calculées — non arrondies,
+ * par `formatShare`. Leur somme arrondie égale le montant publié ; les afficher
+ * arrondies chacune ferait une addition fausse sous les yeux d'un DAF, ce qu'une
+ * recette navigateur a d'ailleurs constaté avant que ce soit corrigé.
  */
 function ValueOrigin({
   currency,
@@ -132,12 +133,41 @@ function ValueOrigin({
         {sources.map((source) => (
           <li key={source.label}>
             <span>{source.label}</span>
-            <span className="origin-share">{formatAmount(source.amount, currency)}</span>
+            <span className="origin-share">{formatShare(source.amount, currency)}</span>
           </li>
         ))}
       </ul>
     </details>
   );
+}
+
+/**
+ * Met en forme une part SANS rien arrondir ni faire passer par un flottant.
+ *
+ * `formatAmount` ne convient pas ici : il fixe deux décimales et passe par
+ * `Number`. Sur des parts exactes, cela produit une addition fausse à l'écran —
+ * 10,005 et 20,005 s'affichaient « 10,01 » et « 20,01 » sous un total de
+ * « 30,01 ». Le lecteur additionne 30,02 et cesse, à raison, de croire le
+ * chiffre. Une part garde donc toutes ses décimales, et au moins deux pour
+ * s'aligner sur les montants.
+ *
+ * Aucune conversion numérique : la valeur vient d'un `numeric` PostgreSQL et
+ * repart en chaîne, comme partout ailleurs dans ce produit.
+ */
+function formatShare(amount: string, currency: string): string {
+  const decompose = amount.trim().match(/^(-?)(\d+)(?:\.(\d+))?$/);
+  if (!decompose) {
+    return amount;
+  }
+
+  // Espace insécable étroite entre les milliers, insécable devant la devise :
+  // les mêmes que produit `Intl` en fr-FR, écrites en échappement pour rester
+  // visibles à la relecture — un caractère invisible se perd à la première
+  // correction de la ligne.
+  const entier = decompose[2].replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F");
+  const decimales = (decompose[3] ?? "").padEnd(2, "0");
+
+  return `${decompose[1]}${entier},${decimales}\u00A0${currency}`;
 }
 
 export default async function ConsolidationPage({
