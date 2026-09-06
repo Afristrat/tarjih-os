@@ -15,9 +15,9 @@
               `tarjih-calculation`), conteneurs `healthy` — tags d'image vérifiés, pas déduits du
               statut. Les commits suivants (`6544cd4`, migration SQL appliquée à la main ;
               `980dcc8`, ce fichier) ne changent aucune ligne servie par les conteneurs.
-  Gates     : typecheck 0, lint 0 warning, **49 tests Node**, **36 tests Python**, build OK,
+  Gates     : typecheck 0, lint 0 warning, **58 tests Node**, **36 tests Python**, build OK,
               **90 contrôles pgTAP** sur les SEPT fichiers, joués contre la PRODUCTION en
-              begin/rollback, 0 échec. **6 tests Playwright verts** contre `https://tarjih-os.com`.
+              begin/rollback, 0 échec. **11 tests Playwright verts** contre `https://tarjih-os.com`.
   Données   : 3 montants publiés, **0 sans origine**, 3 parts. Tenant réel « Afrique Stratégie » :
               1 hypothèse, 0 montant — INTACT et recompté après coup.
   Migrations: registre à 7 lignes (ajout de `20260906120000`, `20260906130000`, `20260906140000`).
@@ -63,6 +63,24 @@
      il ne servait à rien.
   8. Cas 7 : la borne de la recette est ÉCRITE (`specs/todo/09-parcours-e2e.md`) — la recette cesse
      de tourner sur cette base au premier client payant, pas « quand on aura le temps ».
+
+  9. **UNE RECETTE NAVIGATEUR EST ÉCRITE AVANT LE CODE, ET ELLE A TROUVÉ UN DÉFAUT RÉEL.**
+     `e2e/tracabilite-des-montants.spec.ts` publie DEUX hypothèses approuvées sur le même compte
+     et la même période — ce que le parcours vertical ne faisait pas, et c'est pourquoi il ne
+     prouvait rien sur l'origine : une part unique égale forcément son total.
+     Le moteur a réussi ses trois épreuves (une seule ligne agrégée, arrondi unique à 30,01, les
+     deux hypothèses nommées). **L'ÉCRAN, LUI, MENTAIT** : 10,005 et 20,005 s'affichaient
+     « 10,01 » et « 20,01 » sous un total de « 30,01 ». Le lecteur additionne 30,02 et cesse de
+     croire, non pas l'affichage, mais LE CHIFFRE. Cause : `formatAmount` fixe deux décimales et
+     passe par `Number`. Les parts gardent désormais toutes leurs décimales, sans conversion
+     numérique. Corrigé APRÈS avoir vu le rouge, jamais l'inverse.
+     Évalué en base après coup, indépendamment de Playwright : parts `10.005` et `20.005`,
+     montant `30.010000`, et `round(somme des parts, 6) = montant` VRAI. Le moteur Python était
+     juste sur toute la ligne ; le défaut était entièrement dans le rendu.
+     L'arithmétique du test est en `bigint`, jamais en flottant — mesurer une addition avec
+     l'erreur qu'on veut détecter ne prouverait rien — et l'instrument a ses propres tests
+     unitaires (`tests/montants-affiches.test.ts`, 9 contrôles) : un instrument faux déclarerait
+     juste une addition fausse.
 
 [ALERTE]
   - **UNE VERSION PUBLIÉE CESSE D'ÊTRE REPRODUCTIBLE DÈS QU'ON AJOUTE UN COMPTE.** Mesuré, pas
@@ -124,7 +142,13 @@
      était arbitraire, pas le code.
   7. **`plan(n)` de pgTAP ne pardonne pas** : compter les contrôles à la main, ou le fichier
      signale un écart même quand tout passe.
-  8. **Un contrôle d'isolation joué en `postgres` ne prouve RIEN** : la RLS ne s'applique pas à un
+  8. **`target: ES2017` dans `tsconfig.json` interdit les littéraux `bigint`** (`0n`). `BigInt(0)`
+     passe. Ne pas remonter la cible du projet pour un besoin de test.
+  9. **Ne jamais écrire un caractère invisible dans du code** : les espaces insécables d'`Intl`
+     (U+00A0, U+202F) collés dans une classe de caractères rendent la ligne inéditable — un
+     `Edit` ne retrouve pas la chaîne, et une correction ultérieure les supprime sans le savoir.
+     Les écrire en échappement (` `) et les nommer.
+ 10. **Un contrôle d'isolation joué en `postgres` ne prouve RIEN** : la RLS ne s'applique pas à un
      superutilisateur. `set local role authenticated` est obligatoire, comme le fait le fichier 02.
 ```
 
