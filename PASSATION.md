@@ -8,8 +8,13 @@
 
 ```
 [ETAT]
-  Repo      : `HEAD` == `origin/master` == `6544cd4`, worktree propre. Web ET moteur déployés sur
-              `65e73dd`, conteneurs `healthy` (tags d'image vérifiés, pas déduits du statut).
+  Repo      : `HEAD` == `origin/master`, worktree propre. Le hash de tête n'est pas figé ici : les
+              derniers commits sont documentaires et le font bouger à chaque correction de ce
+              fichier — `git log --oneline -1` fait foi. Le repère qui compte est le dernier commit
+              APPLICATIF, `65e73dd`, sur lequel tournent **les deux** services (`tarjih-web` ET
+              `tarjih-calculation`), conteneurs `healthy` — tags d'image vérifiés, pas déduits du
+              statut. Les commits suivants (`6544cd4`, migration SQL appliquée à la main ;
+              `980dcc8`, ce fichier) ne changent aucune ligne servie par les conteneurs.
   Gates     : typecheck 0, lint 0 warning, **49 tests Node**, **36 tests Python**, build OK,
               **90 contrôles pgTAP** sur les SEPT fichiers, joués contre la PRODUCTION en
               begin/rollback, 0 échec. **6 tests Playwright verts** contre `https://tarjih-os.com`.
