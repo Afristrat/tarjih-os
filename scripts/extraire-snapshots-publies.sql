@@ -13,6 +13,20 @@
 -- retrouve `calculation_runs.input_hash`. L'empreinte est le témoin ; sans elle,
 -- la reconstruction ne serait qu'une reconstitution plausible.
 --
+-- LE RÉFÉRENTIEL EST REPRIS TEL QU'IL ÉTAIT À LA PUBLICATION (`created_at <=
+-- published_at`), et ce n'est pas un raffinement : le snapshot embarque TOUT le
+-- référentiel du tenant, y compris les comptes et périodes qui n'ont servi à
+-- aucun calcul. Ajouter un compte sans rapport change donc l'`input_hash` d'une
+-- version déjà publiée, dont les chiffres n'ont pourtant pas bougé d'un iota.
+--
+-- Mesuré ici même : sans ce filtre, la version `c6033eb3` (empreinte
+-- `6d5de917d09b`) ne se reproduisait plus — son tenant avait gagné un compte et
+-- une période après coup. Avec le filtre, elle se retrouve exactement.
+--
+-- Le filtre ne PROUVE rien à lui seul — un compte modifié après coup lui
+-- échapperait. C'est l'empreinte qui juge : il propose un candidat, elle
+-- l'accepte ou le rejette.
+--
 -- Lecture seule. Rien n'est écrit ici.
 --
 --   ... psql -U postgres -d postgres -t -A -f scripts/extraire-snapshots-publies.sql
@@ -39,6 +53,7 @@ from (
         )), '[]'::jsonb)
         from public.financial_accounts account
         where account.tenant_id = version.tenant_id
+          and account.created_at <= version.published_at
       ),
       'periods', (
         select coalesce(jsonb_agg(jsonb_build_object(
@@ -48,6 +63,7 @@ from (
         )), '[]'::jsonb)
         from public.periods period
         where period.tenant_id = version.tenant_id
+          and period.created_at <= version.published_at
       ),
       'dimensions', (
         select coalesce(jsonb_agg(jsonb_build_object(
@@ -57,6 +73,7 @@ from (
         )), '[]'::jsonb)
         from public.dimensions dimension
         where dimension.tenant_id = version.tenant_id
+          and dimension.created_at <= version.published_at
       ),
       'hypotheses', (
         select coalesce(jsonb_agg(jsonb_build_object(
