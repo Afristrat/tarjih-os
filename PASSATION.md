@@ -16,8 +16,8 @@
   Gates     : typecheck 0. **68 tests Node** (58 + 10 d'export), **43 tests Python**.
               **117 contrôles pgTAP** sur NEUF fichiers (107 + 10 nouveaux), 0 échec, joués contre
               la PRODUCTION en begin/rollback.
-              ⚠️ **lint et build NON REVÉRIFIÉS** depuis l'ajout des derniers fichiers de la 08 :
-              le lint tournait encore à la clôture. À rejouer AVANT tout commit.
+              **lint 0 warning et build OK**, rejoués sur l'état final des fichiers (le lint
+              couvre `src tests e2e playwright.config.ts`, donc le parcours d'export inclus).
               ⚠️ **Recette Playwright de l'export JAMAIS JOUÉE** (`e2e/export-rbac.spec.ts` écrit,
               non exécuté). 11 tests e2e verts au titre de la partie empreinte, pas de la 08.
   Données   : tenant réel « Afrique Stratégie » : 1 hypothèse, **0 montant — INTACT**.
