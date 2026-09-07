@@ -8,7 +8,8 @@
 
 ```
 [ETAT]
-  Repo      : `HEAD` == `origin/master` == **`ce63e7f`**, worktree PROPRE.
+  Repo      : `HEAD` == `origin/master`, worktree PROPRE. Le hash de tête bouge avec les commits
+              documentaires ; le repère qui compte est le dernier commit APPLICATIF, **`ce63e7f`**.
   Prod      : `tarjih-web` sur **`ce63e7f`** (tag d'image vérifié, `healthy`), `tarjih-calculation`
               sur `6b398e0` — aucun fichier de `services/` ne diffère entre les deux commits
               (vérifié par `git diff --name-only`), le moteur servi est donc bien celui de HEAD.
@@ -92,8 +93,9 @@
 [CTX]
   Session `7f92c561`, 2026-09-07, CWD `c:\projets\Budget & CFO`. HEAD de référence au démarrage
   `ef1b7e5` ; aucune autre session n'a écrit dans le dépôt (vérifié par `fetch` avant chaque push).
-  Trois commits poussés : `6b398e0` (la 08 telle qu'écrite la session d'avant), `5e1d3af` (les deux
-  corrections trouvées par la recette), `ce63e7f` (déclaration de `fflate` et clôture de la spec).
+  Cinq commits poussés : `6b398e0` (la 08 telle qu'écrite la session d'avant), `5e1d3af` (les deux
+  corrections trouvées par la recette), `ce63e7f` (déclaration de `fflate` et clôture de la spec),
+  puis deux documentaires — `d97765a` (cette entrée) et `87b0674` (`.gitattributes`).
 
   Le contexte opératoire — serveur, base, uuid Coolify, commandes de gates, pgTAP, migration,
   recette, déploiement, preuve par tag d'image, coffre — est INCHANGÉ : voir l'entrée du
@@ -117,7 +119,12 @@
   4. **`git diff` peut afficher un couple `-`/`+` de lignes strictement identiques** (vérifié à
      l'octet près par `od -c` : ni CRLF, ni caractère invisible). Artefact d'ancrage de l'algorithme
      de diff, sans conséquence — ne pas partir en chasse d'un caractère fantôme.
-  5. **Un test unitaire d'export ne prouve rien sur le service déployé.** Ici, les dix contrôles
+  5. **`PASSATION.md` était le SEUL fichier du dépôt en CRLF.** Le réécrire avec un outil qui
+     normalise en LF a produit un diff de 1 141 lignes pour un ajout de 129 — le fichier entier,
+     remplacé ligne à ligne, dans celui qu'on relit justement. La conversion est bonne (tout le
+     reste du dépôt est en LF) ; ce qui manquait était la règle qui la tient sur un poste Windows.
+     `.gitattributes` (`* text=auto eol=lf`) la fixe désormais.
+  6. **Un test unitaire d'export ne prouve rien sur le service déployé.** Ici, les dix contrôles
      unitaires portaient sur `scope.ts` et `workbook.ts`, tous deux corrects. Le défaut vivait
      dans la couche qu'aucun d'eux ne traverse : la lecture PostgREST. La règle du projet — la
      recette navigateur contre la production est la preuve, pas le complément — n'est pas une
