@@ -33,8 +33,14 @@ export function isSnapshotFailure(result: SnapshotResult): result is SnapshotFai
   return "reason" in result;
 }
 
-/** Version du moteur attendue. Doit suivre `ENGINE_VERSION` côté Python. */
-export const EXPECTED_ENGINE_VERSION = "1.0.0";
+/**
+ * Version du moteur attendue. Doit suivre `ENGINE_VERSION` côté Python.
+ *
+ * Les deux services se déploient ENSEMBLE : livrer l'un sans l'autre fait
+ * refuser tout snapshot (`engine_version_mismatch`) et l'écran annonce alors
+ * une panne du service de calcul, alors que celui-ci répond parfaitement.
+ */
+export const EXPECTED_ENGINE_VERSION = "1.1.0";
 
 type VersionRow = {
   calculation_model: string;

@@ -103,7 +103,8 @@ select throws_ok(
       repeat('a', 64),
       repeat('b', 64),
       '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","amount":"10.000000","currency":"MAD"}]'::jsonb,
-      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"10"}]'::jsonb
+      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"10"}]'::jsonb,
+      '{"version_id":"c6cccccc-3000-0000-0000-000000000003","tenant_id":"c6cccccc-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   '42501',
   'Only a DAF or a DG publishes a calculation',
@@ -119,7 +120,8 @@ select throws_ok(
       repeat('a', 64),
       repeat('b', 64),
       '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","amount":"10.000000","currency":"MAD"}]'::jsonb,
-      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"10"}]'::jsonb
+      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"10"}]'::jsonb,
+      '{"version_id":"c6cccccc-3000-0000-0000-000000000003","tenant_id":"c6cccccc-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   '42501',
   'Only a DAF or a DG publishes a calculation',
@@ -141,7 +143,8 @@ select lives_ok(
       '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","amount":"10.500000","currency":"MAD"},
         {"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000002","amount":"4.500000","currency":"MAD"}]'::jsonb,
       '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"10.5"},
-        {"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000002","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"4.5"}]'::jsonb
+        {"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000002","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"4.5"}]'::jsonb,
+      '{"version_id":"c6cccccc-3000-0000-0000-000000000003","tenant_id":"c6cccccc-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   'un DAF publie le calcul de sa version'
 );
@@ -184,7 +187,8 @@ select is(
       repeat('c', 64),
       repeat('d', 64),
       '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","amount":"10.500000","currency":"MAD"}]'::jsonb,
-      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"10.5"}]'::jsonb
+      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"10.5"}]'::jsonb,
+      '{"version_id":"c6cccccc-3000-0000-0000-000000000003","tenant_id":"c6cccccc-0000-0000-0000-000000000001"}'::jsonb
     )),
   (select id from public.calculation_runs where version_id = 'c6cccccc-3000-0000-0000-000000000003'),
   'rejouer le même calcul rend le run déjà réussi au lieu d’en créer un second'
@@ -204,7 +208,8 @@ select throws_ok(
       repeat('e', 64),
       repeat('f', 64),
       '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","amount":"99.000000","currency":"MAD"}]'::jsonb,
-      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"99"}]'::jsonb
+      '[{"dimension_id":"c6cccccc-1000-0000-0000-000000000001","account_id":"c6cccccc-5000-0000-0000-000000000001","period_id":"c6cccccc-6000-0000-0000-000000000001","hypothesis_id":"c6cccccc-4000-0000-0000-000000000003","amount":"99"}]'::jsonb,
+      '{"version_id":"c6cccccc-3000-0000-0000-000000000003","tenant_id":"c6cccccc-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   '55000',
   'A published version is immutable',
@@ -218,7 +223,8 @@ select throws_ok(
       repeat('9', 64),
       repeat('8', 64),
       '[]'::jsonb,
-      '[]'::jsonb
+      '[]'::jsonb,
+      '{"version_id":"c6cccccc-3000-0000-0000-000000000002","tenant_id":"c6cccccc-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   '22023',
   'A published version carries at least one value',

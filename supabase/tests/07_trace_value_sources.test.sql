@@ -94,7 +94,8 @@ select lives_ok(
       repeat('2', 64),
       '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","amount":"25.925925","currency":"MAD"}]'::jsonb,
       '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000001","amount":"25.92592540740741"},
-        {"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000002","amount":"0"}]'::jsonb
+        {"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000002","amount":"0"}]'::jsonb,
+      '{"version_id":"e7eeeeee-3000-0000-0000-000000000001","tenant_id":"e7eeeeee-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   'un DAF publie un montant et l’origine de ce montant dans la même transaction'
 );
@@ -156,7 +157,8 @@ select throws_ok(
       repeat('3', 64),
       repeat('4', 64),
       '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","amount":"10.000000","currency":"MAD"}]'::jsonb,
-      '[]'::jsonb
+      '[]'::jsonb,
+      '{"version_id":"e7eeeeee-3000-0000-0000-000000000002","tenant_id":"e7eeeeee-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   '22023',
   'A published value carries at least one source',
@@ -173,7 +175,8 @@ select throws_ok(
       repeat('6', 64),
       '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","amount":"10.000000","currency":"MAD"}]'::jsonb,
       '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000003","amount":"10"},
-        {"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"11111111-1111-4111-8111-111111111111","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000003","amount":"5"}]'::jsonb
+        {"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"11111111-1111-4111-8111-111111111111","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000003","amount":"5"}]'::jsonb,
+      '{"version_id":"e7eeeeee-3000-0000-0000-000000000002","tenant_id":"e7eeeeee-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   '55000',
   'Attached 1 sources for 2 submitted',
@@ -188,7 +191,8 @@ select throws_ok(
       repeat('7', 64),
       repeat('8', 64),
       '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","amount":"10.000000","currency":"MAD"}]'::jsonb,
-      '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000001","amount":"10"}]'::jsonb
+      '[{"dimension_id":"e7eeeeee-1000-0000-0000-000000000001","account_id":"e7eeeeee-5000-0000-0000-000000000001","period_id":"e7eeeeee-6000-0000-0000-000000000001","hypothesis_id":"e7eeeeee-4000-0000-0000-000000000001","amount":"10"}]'::jsonb,
+      '{"version_id":"e7eeeeee-3000-0000-0000-000000000002","tenant_id":"e7eeeeee-0000-0000-0000-000000000001"}'::jsonb
     )$$,
   '55000',
   'A source cites an hypothesis of another version',

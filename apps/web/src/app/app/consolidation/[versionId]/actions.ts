@@ -79,6 +79,11 @@ export async function publishCalculation(formData: FormData): Promise<never> {
     submitted_engine_version: outcome.engineVersion,
     submitted_input_hash: outcome.inputHash,
     submitted_output_hash: outcome.outputHash,
+    // La matière d'entrée EXACTE, celle que le moteur vient d'empreinter. Sans
+    // elle, `input_hash` ne prouve que son propre calcul : rejouer la version
+    // supposerait de refaire sa matière depuis un référentiel qui, lui, a
+    // continué de vivre — ce qui a déjà rendu une version publiée irrejouable.
+    submitted_snapshot: snapshot.payload,
     target_version_id: versionId,
   });
 
