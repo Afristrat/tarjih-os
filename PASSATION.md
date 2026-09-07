@@ -4,7 +4,136 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-07 (fin) — Task 08 LIVRÉE ET PROUVÉE : la recette navigateur a trouvé le classeur vide
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`ce63e7f`**, worktree PROPRE.
+  Prod      : `tarjih-web` sur **`ce63e7f`** (tag d'image vérifié, `healthy`), `tarjih-calculation`
+              sur `6b398e0` — aucun fichier de `services/` ne diffère entre les deux commits
+              (vérifié par `git diff --name-only`), le moteur servi est donc bien celui de HEAD.
+  Gates     : typecheck 0, lint 0 warning, **68 tests Node**, **43 tests Python**, build OK.
+              **117 contrôles pgTAP** sur les NEUF fichiers, joués contre la PRODUCTION en
+              begin/rollback, 0 échec — rejoués APRÈS la recette, pas seulement avant.
+              **17 tests Playwright verts** contre `https://tarjih-os.com`, sur le commit
+              RÉELLEMENT DÉPLOYÉ (11 d'avant + 6 d'export).
+  Données   : recomptées à la clôture — 16 versions publiées, 16 montants, 21 parts,
+              **0 montant sans origine**, 16 runs réussis dont 10 avec matière conservée.
+              **10 traces d'export**, toutes en périmètre global (DAF/DG), sur 3 versions et
+              **3 empreintes distinctes** : les demandes répétées d'un même export ont bien
+              rendu la MÊME empreinte, le déterminisme est donc prouvé par le JOURNAL et pas
+              seulement par un test.
+              **Tenant réel « Afrique Stratégie » : 1 hypothèse, 0 montant — INTACT.**
+  Migrations: registre à 8 lignes. La task 08 n'en a ajouté AUCUNE.
+  Tasks     : 01→09 ✅ · **10 ⬜** — seule tâche non commencée.
+
+[FAIT]
+  1. **LA RECETTE NAVIGATEUR A TROUVÉ CE QUE DIX CONTRÔLES UNITAIRES VERTS NE POUVAIENT PAS VOIR :
+     le classeur remis au DAF ne portait QUE sa ligne d'en-tête.** C'est LE fait de cette session,
+     et il valide l'alerte que la passation précédente laissait ouverte. Cause : un `numeric`
+     revient de PostgREST en **NOMBRE JSON** — il a déjà traversé un flottant binaire avant que le
+     code ne le voie — et le garde de l'endpoint, qui exigeait du texte, écartait chaque ligne
+     **en silence**, une par une. L'écran de consolidation contournait déjà le problème avec un
+     `String(row.amount)`, c'est-à-dire en faisant transiter le montant par un flottant : ce que la
+     convention du projet interdit, et ce que `workbook.ts` existait précisément pour éviter.
+  2. **DEUX CORRECTIONS, PAS UNE.** Le cast `amount::text` dans la requête corrige le défaut à sa
+     racine (une fois qu'un nombre JSON atteint JavaScript, la précision est perdue et ne se
+     rattrape plus). Mais la seconde compte davantage : l'endpoint **refuse désormais** un export
+     dont le compte de lignes ne retombe pas sur celui de la requête. Toutes ces colonnes sont
+     `not null` — une ligne qui échoue au garde est une ANOMALIE, pas un filtrage. Un classeur
+     reçu, signé et faux est pire qu'une erreur, et c'est le silence qui avait rendu le défaut
+     invisible.
+  3. **La 08 est close sur preuve** : 6 parcours navigateur contre la production, dont le contrôle
+     central — un contributeur portant `can_read` et NON `can_export` reçoit un 403 sur l'adresse
+     DEVINÉE. La promesse `prd.md:60` (« aucune donnée hors périmètre, y compris dans les
+     exports ») est vérifiée en conditions réelles, plus seulement en laboratoire.
+  4. **`fflate` était importé par du code de PRODUCTION sans être déclaré** (`workbook.ts`),
+     joignable seulement comme transitive de `write-excel-file`. Le jour où celui-ci change de
+     compresseur, le build casse en production. Déclaré et épinglé. `write-excel-file` était en
+     `^4.1.1` alors que toutes les autres dépendances d'exécution sont épinglées exactes : un
+     caret aurait laissé une version ultérieure changer les octets du fichier, donc l'empreinte
+     que la trace promet. Épinglé à `4.1.1`.
+
+[ALERTE]
+  - **L'export ne porte QUE les montants**, pas les parts d'hypothèses que l'écran de consolidation
+    affiche. YAGNI assumé, non demandé par la spec — mais un DAF qui exporte perd l'origine des
+    chiffres qu'il voit à l'écran. À trancher au premier retour d'usage.
+  - **La chaîne d'AFFICHAGE de la consolidation fait toujours transiter les montants par un
+    flottant** (`String(row.amount)` ligne 266, puis `Number()` dans `formatAmount` ligne 89 et
+    dans le total ligne 342). Sans effet mesurable en deçà d'environ 9·10¹⁵, mais contraire à la
+    convention « montants en `numeric`, jamais en flottants ». NON corrigé : corriger la seule
+    lecture sans reprendre `formatAmount` et le total ne changerait rien de mesurable — c'est un
+    chantier d'affichage distinct, pas une rustine à glisser dans la task d'export.
+  - **Écart assumé à la spec 08** : elle listait `services/calculation/.../export.py`. Ce fichier
+    n'existe pas et n'est pas prévu — le moteur Python ne reçoit aucun contexte utilisateur
+    (`archi.md`), il ne peut donc pas filtrer. L'écart est désormais écrit DANS la spec.
+  - **Rangement des specs incohérent** : 01→05 vivent dans `specs/done/` avec `status: completed` ;
+    06, 07, 08 et 09, terminées elles aussi, sont restées dans `specs/todo/` avec `status: done`.
+    Le tableau de `specs/todo/README.md` fait foi — c'est écrit dans le README. Non « corrigé » :
+    déplacer quatre fichiers invaliderait les chemins cités dans plusieurs entrées ci-dessous.
+  - **Les six runs antérieurs au 2026-09-07 restent sans matière et non rejouables** (moteur 1.1.0
+    refuse un snapshot 1.0.0). Tous du tenant de recette.
+  - **Tarjih toujours ABSENT du tableau de `PASSATION-INDEX.md`** — ouvert depuis le 2026-08-28.
+    Écriture hors projet (règle n°6) : signalée, jamais faite. À ajouter par Amine.
+
+[BLOQUE]
+  Rien techniquement. Le seul jalon PRODUIT bloqué par un accès : faire produire un chiffre à un
+  TENANT RÉEL — `a.mansouri@afriquestrategie.com` est le seul DG du tenant « Afrique Stratégie »
+  et son mot de passe n'est pas au coffre.
+
+[NEXT]
+  1. **Faire produire à Tarjih un chiffre pour un tenant réel** (cf. [BLOQUE]) — seul jalon produit
+     qui manque, et il ne demande plus une ligne de code.
+  2. **Task 10 (déploiement preview)** — dernière tâche du découpage, P1, estimée 1 h.
+  3. Trancher : l'export doit-il porter les parts d'hypothèses ? (première ALERTE ci-dessus).
+  4. Modèle économique pilote (`prd.md:138`) : question de découverte client, déclencheur = premier
+     client réel. PAS une dette technique.
+
+[CTX]
+  Session `7f92c561`, 2026-09-07, CWD `c:\projets\Budget & CFO`. HEAD de référence au démarrage
+  `ef1b7e5` ; aucune autre session n'a écrit dans le dépôt (vérifié par `fetch` avant chaque push).
+  Trois commits poussés : `6b398e0` (la 08 telle qu'écrite la session d'avant), `5e1d3af` (les deux
+  corrections trouvées par la recette), `ce63e7f` (déclaration de `fflate` et clôture de la spec).
+
+  Le contexte opératoire — serveur, base, uuid Coolify, commandes de gates, pgTAP, migration,
+  recette, déploiement, preuve par tag d'image, coffre — est INCHANGÉ : voir l'entrée du
+  2026-09-06, toujours exacte, section [CTX].
+
+[MEMO]
+  Pièges payés cette session :
+  1. **PostgREST rend un `numeric` en NOMBRE JSON.** Tout garde qui exige `typeof === "string"` sur
+     un montant rejette donc TOUTES les lignes. Le correctif est le cast `::text` dans le `select`
+     (`select("…, amount::text, …")`, la clé rendue garde son nom) — pas un `String(valeur)`, qui
+     arrive trop tard : la précision est déjà perdue au parsing JSON.
+  2. **UN `continue` SILENCIEUX TRANSFORME UN DÉFAUT EN FICHIER VIDE.** Le mode de défaillance
+     était pire que le défaut lui-même : rien dans les journaux, un 200, un fichier bien formé.
+     Quand un garde protège d'une ANOMALIE (colonnes `not null`) et non d'un filtrage, il doit
+     faire ÉCHOUER, pas ignorer.
+  3. **Une attente de test peut être JUSTE là où l'envie de « bien faire » est fausse.** J'ai
+     commencé par normaliser le montant en forme canonique (`1234.560000` → `1234.56`) pour aligner
+     le fichier sur l'écran. Un contrôle existant attendait `10.005000` **tel quel**, et son
+     intention était la bonne : un export d'audit reflète la base, sans décision de mise en forme.
+     Code annulé. Vérifier ce qu'un test PROTÈGE avant de le « corriger ».
+  4. **`git diff` peut afficher un couple `-`/`+` de lignes strictement identiques** (vérifié à
+     l'octet près par `od -c` : ni CRLF, ni caractère invisible). Artefact d'ancrage de l'algorithme
+     de diff, sans conséquence — ne pas partir en chasse d'un caractère fantôme.
+  5. **Un test unitaire d'export ne prouve rien sur le service déployé.** Ici, les dix contrôles
+     unitaires portaient sur `scope.ts` et `workbook.ts`, tous deux corrects. Le défaut vivait
+     dans la couche qu'aucun d'eux ne traverse : la lecture PostgREST. La règle du projet — la
+     recette navigateur contre la production est la preuve, pas le complément — n'est pas une
+     précaution de style.
+```
+
+---
+
 ## 2026-09-07 (suite) — Task 08 : l'export, écrit et prouvé en unitaire, PAS ENCORE LIVRÉ
+
+> **PÉRIMÉE : la task 08 est depuis LIVRÉE, DÉPLOYÉE et PROUVÉE — voir l'entrée du 2026-09-07
+> (fin) ci-dessus.** Son [ENCOURS] et son [NEXT] sont entièrement traités, et son [ETAT] cite un
+> HEAD dépassé. Elle reste ici pour ce qu'elle documente encore exactement : les décisions de
+> conception de l'export, le choix de bibliothèque fondé sur les advisories, et le fait que la
+> RLS de `budget_values` porte sur `read` et non sur `export`. Son alerte n°1 disait vrai : le
+> code n'était pas prouvé, et la recette a bel et bien trouvé un défaut.
 
 ```
 [ETAT]
