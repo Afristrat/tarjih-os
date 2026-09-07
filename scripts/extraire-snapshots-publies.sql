@@ -1,3 +1,13 @@
+-- PÉRIMÉ depuis le 2026-09-07 — conservé comme trace, plus comme outil.
+--
+-- Ce fichier RECONSTRUISAIT la matière d'entrée depuis la base, faute de l'avoir
+-- conservée. Elle l'est désormais (`calculation_runs.input_snapshot`), et c'est
+-- `scripts/extraire-matieres-conservees.sql` qui la lit — sans rien reconstruire.
+--
+-- Il ne peut plus servir : les runs qu'il vise portent `engine_version` 1.0.0, que
+-- le moteur 1.1.0 refuse (`engine_version_mismatch`). Le rejeu rend donc un REFUS
+-- motivé, jamais une origine plausible — vérifié, pas supposé.
+
 -- Extrait, pour chaque version DÉJÀ publiée, la matière qui a produit ses
 -- chiffres — dans la forme exacte que `lib/calculation/snapshot.ts` envoie au
 -- moteur (`buildSnapshot`).

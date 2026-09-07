@@ -1,4 +1,15 @@
-"""Reconstruit l'origine des montants publiés AVANT la traçabilité.
+"""PÉRIMÉ depuis le 2026-09-07 — conservé comme trace, plus comme outil.
+
+La matière d'entrée est désormais CONSERVÉE (`calculation_runs.input_snapshot`) :
+il n'y a plus rien à reconstruire, et `scripts/verifier-reproductibilite.py` la
+rejoue telle quelle. Ce script ne peut d'ailleurs plus servir — les runs qu'il
+vise portent `engine_version` 1.0.0, que le moteur 1.1.0 refuse
+(`engine_version_mismatch`). Le rejeu rend donc un REFUS motivé, jamais une
+origine plausible : vérifié, pas supposé.
+
+Ce qu'il faisait, et qui a bien eu lieu le 2026-09-06 :
+
+Reconstruit l'origine des montants publiés AVANT la traçabilité.
 
 Lit sur l'entrée standard le JSON produit par
 `scripts/extraire-snapshots-publies.sql`, rejoue chaque version publiée avec le
