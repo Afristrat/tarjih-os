@@ -4,6 +4,157 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-07 (suite) — Task 08 : l'export, écrit et prouvé en unitaire, PAS ENCORE LIVRÉ
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`ae29f79`**. **WORKTREE SALE** : la task 08 est en
+              cours et n'est NI commitée NI déployée (liste exacte dans [ENCOURS]).
+  Prod      : dernier commit APPLICATIF déployé **`2aafe07`**, les DEUX services (`tarjih-web` et
+              `tarjih-calculation`) `healthy`, tags d'image vérifiés, bascule terminée. Rien de la
+              task 08 ne tourne en production.
+  Gates     : typecheck 0. **68 tests Node** (58 + 10 d'export), **43 tests Python**.
+              **117 contrôles pgTAP** sur NEUF fichiers (107 + 10 nouveaux), 0 échec, joués contre
+              la PRODUCTION en begin/rollback.
+              ⚠️ **lint et build NON REVÉRIFIÉS** depuis l'ajout des derniers fichiers de la 08 :
+              le lint tournait encore à la clôture. À rejouer AVANT tout commit.
+              ⚠️ **Recette Playwright de l'export JAMAIS JOUÉE** (`e2e/export-rbac.spec.ts` écrit,
+              non exécuté). 11 tests e2e verts au titre de la partie empreinte, pas de la 08.
+  Données   : tenant réel « Afrique Stratégie » : 1 hypothèse, **0 montant — INTACT**.
+              Recette e2e : 8 versions publiées, 8 montants, 11 parts, 0 montant sans origine.
+              Runs réussis : 8, dont 2 avec matière d'entrée conservée.
+  Migrations: registre à 8 lignes. **La task 08 n'en ajoute AUCUNE** — `public.exports` existait
+              depuis la migration initiale, avec sa RLS.
+  Tasks     : 01→07 ✅ · **08 🟨 en cours** · 09 ✅ · 10 ⬜.
+
+[FAIT]
+  (La première moitié de la session — reproductibilité des versions publiées, moteur 1.1.0,
+  `calculation_runs.input_snapshot` — est décrite dans l'entrée du 2026-09-07 ci-dessous. Elle est
+  livrée, déployée et prouvée. Ce qui suit ne concerne QUE la task 08.)
+
+  1. **LA RLS DE `budget_values` PORTE SUR `read`, PAS SUR `export`.** C'est la découverte qui
+     structure toute la task. Un contributeur peut avoir `can_read` sur une dimension sans
+     `can_export` : une requête ordinaire remonte donc des lignes que le fichier n'a pas le droit
+     d'emporter. Conséquence : `lib/exports/scope.ts` **DÉCIDE**, il n'est pas un miroir de la base
+     comme l'est `hasDimensionPermission` ailleurs. Le fait est figé par un contrôle pgTAP dédié
+     (fichier 10, dernier contrôle), pour qu'un futur resserrement de la RLS soit VU et non deviné.
+  2. **`public.exports` n'avait AUCUN test** alors que sa RLS existe depuis l'origine.
+     `supabase/tests/10_export_rbac.test.sql` : 10 contrôles, tous verts contre la production —
+     dont le refus opposé à un contributeur qui demanderait une dimension seulement lisible, et le
+     refus d'une demande au nom d'autrui.
+  3. **LE DÉTERMINISME EXIGÉ PAR `prd.md:122` N'ÉTAIT PAS ACQUIS.** Mesuré : `write-excel-file`
+     rend un fichier DIFFÉRENT à chaque appel — seize octets, les horodatages que le format ZIP
+     écrit dans chaque en-tête. Sans correction, `exports.file_hash` n'aurait permis de vérifier
+     aucun fichier reçu. `figerLArchive` réécrit l'archive avec une date constante (1980-01-01 ;
+     `mtime: 0` est REFUSÉ, le format ne code que 1980-2099).
+  4. Bibliothèque choisie sur PREUVE, pas de mémoire : `xlsx` (SheetJS) écarté — la seule version
+     sur npm public, 0.18.5, porte **deux advisories `high`** dont les correctifs (0.19.3, 0.20.2)
+     n'existent que hors du registre public. `exceljs` : 0 advisory mais **9 dépendances et 21,8 Mo**.
+     Retenu : **`write-excel-file@4.1.1`** — 0 advisory, **une seule transitive (`fflate`), 1,8 Mo**,
+     écriture seule (pas de parseur, donc moins de surface). Vérifié : il n'écrit AUCUN `docProps`,
+     donc aucune métadonnée d'auteur ni de date.
+  5. Les deux écrans portent le lien : « Exporter le classeur » sur la consolidation (DAF/DG) et
+     « Exporter mon périmètre » sur la version (contributeur ayant un périmètre). Un endpoint
+     qu'aucun écran n'atteint n'est livré qu'à moitié — leçon déjà payée le 2026-08-28.
+
+[ENCOURS]
+  **Task 08, tout est écrit, RIEN n'est livré.** Fichiers non commités :
+    · `apps/web/src/lib/exports/scope.ts`      (périmètre + `scope_hash`)
+    · `apps/web/src/lib/exports/workbook.ts`   (classeur déterministe, `figerLArchive` exportée)
+    · `apps/web/src/app/api/exports/[versionId]/route.ts` (endpoint, journalisation AVANT envoi)
+    · `apps/web/tests/exports.test.ts`         (10 contrôles)
+    · `apps/web/e2e/export-rbac.spec.ts`       (6 parcours, **jamais exécutés**)
+    · `supabase/tests/10_export_rbac.test.sql` (10 contrôles, verts)
+    · modifiés : `package.json` + `package-lock.json` (nouvelle dépendance),
+      `app/app/budgets/[versionId]/page.tsx`, `app/app/consolidation/[versionId]/page.tsx`
+
+  Reste à faire, dans cet ordre :
+    1. `npm run lint` puis `npm run build` — non rejoués depuis les derniers fichiers ;
+    2. commit + push ;
+    3. déployer **les DEUX services** (voir MEMO 1 de l'entrée du 2026-09-06) ;
+    4. jouer `e2e/export-rbac.spec.ts` contre `https://tarjih-os.com` — **c'est LA preuve qui
+       manque**, et son contrôle central est le refus opposé au contributeur sur une adresse
+       DEVINÉE (le jeu de recette lui donne `can_read` et NON `can_export`) ;
+    5. rejouer les NEUF fichiers pgTAP ;
+    6. passer la spec 08 en `status: done` et la déplacer dans `specs/done/`.
+
+[ALERTE]
+  - **NE PAS DÉCLARER LA 08 TERMINÉE SANS LA RECETTE NAVIGATEUR.** Le filtrage d'export ne repose
+    PAS sur la RLS (cf. FAIT 1) : c'est du code applicatif qui décide seul. Un test unitaire vert
+    ne prouve rien sur le service déployé. Tant que l'étape 4 ci-dessus n'a pas tourné, la promesse
+    « un contributeur ne reçoit aucune donnée hors périmètre, y compris dans les exports »
+    (`prd.md:60`) n'est PAS vérifiée en conditions réelles.
+  - **ÉCART ASSUMÉ À LA SPEC 08** : elle liste `services/calculation/.../export.py`. Ce fichier
+    n'existe pas et n'est pas prévu — le moteur Python ne reçoit aucun contexte utilisateur
+    (`archi.md`), il ne peut donc pas filtrer, et son cœur est à ZÉRO dépendance. Toute la
+    génération vit côté web. Décision à confirmer par Amine s'il tenait à ce découpage.
+  - **L'export ne porte QUE les montants**, pas les parts d'hypothèses que l'écran de consolidation
+    affiche. YAGNI assumé, non demandé par la spec — mais un DAF qui exporte perd l'origine des
+    chiffres qu'il voit à l'écran. À trancher au premier retour d'usage.
+  - **Les six runs antérieurs au 2026-09-07 restent sans matière et non rejouables** (moteur 1.1.0
+    refuse un snapshot 1.0.0 — vérifié : `engine_version_mismatch`). Tous du tenant de recette.
+  - **Tarjih toujours ABSENT du tableau de `PASSATION-INDEX.md`** — ouvert depuis le 2026-08-28.
+    Écriture hors projet (règle n°6) : signalée, jamais faite. À ajouter par Amine.
+
+[BLOQUE]
+  Rien techniquement. Le seul jalon PRODUIT qui reste bloqué par un accès :
+  faire produire un chiffre à un TENANT RÉEL — `a.mansouri@afriquestrategie.com` est le seul DG du
+  tenant « Afrique Stratégie » et son mot de passe n'est pas au coffre.
+
+[NEXT]
+  1. **FINIR LA 08** : les six étapes de [ENCOURS], dans l'ordre. Rien d'autre avant.
+  2. **Faire produire à Tarjih un chiffre pour un tenant réel** (cf. [BLOQUE]).
+  3. Task 10 (déploiement preview).
+  4. Modèle économique pilote (`prd.md:138`) : question de découverte client, déclencheur = premier
+     client réel. PAS une dette technique.
+
+[CTX]
+  Session `12b5a4a6`, 2026-09-07, CWD `c:\projets\Budget & CFO`. HEAD de référence au démarrage
+  `b7b069b` ; aucune autre session n'a écrit dans le dépôt (vérifié par `fetch` avant chaque push).
+  Trois commits poussés : `2aafe07` (applicatif — empreinte), `f0969a9` et `ae29f79` (documentaires).
+  Arbitrages tranchés par Amine cette session : **A + C** sur l'empreinte ; **XLSX via
+  bibliothèque** pour l'export (contre ma recommandation CSV — appliqué pleinement, les trois
+  risques que j'avais nommés étant traités : métadonnées absentes, horodatages figés, déterminisme
+  prouvé).
+
+  Vérifier la reproductibilité d'une version publiée (lecture seule, rejouable) :
+    `cat scripts/extraire-matieres-conservees.sql | ssh … 'docker exec -i <db> psql -U postgres`
+    `   -d postgres -t -A -f -' > matieres.json`
+    `python scripts/verifier-reproductibilite.py < matieres.json`   → code 0 si toutes rejouent.
+
+  Le reste du contexte opératoire (serveur, base, uuid Coolify, gates, pgTAP, déploiement, recette,
+  coffre) est INCHANGÉ — voir l'entrée du 2026-09-06, toujours exacte.
+
+[MEMO]
+  Pièges payés dans cette seconde moitié de session :
+  1. **UN CONTRÔLE PEUT RESTER VERT DEUX FALSIFICATIONS DE SUITE.** Le test de déterminisme de
+     l'export est passé vert (a) sans aucune normalisation, parce que deux générations tombent dans
+     la même seconde et que l'horodatage ZIP a une granularité de DEUX secondes ; puis (b) avec une
+     normalisation écrivant la date COURANTE, parce que les deux appels du test la partageaient.
+     Il n'attrape le cas réel que depuis qu'il compare à une **valeur de référence figée**. Trois
+     tentatives. Falsifier n'est pas une formalité : il faut falsifier de la façon dont le code
+     casserait VRAIMENT.
+  2. **`npm view` ne dit rien des vulnérabilités.** Les advisories se lisent au registre :
+     `curl -s -X POST https://registry.npmjs.org/-/npm/v1/security/advisories/bulk -d '{"paquet":["version"]}'`.
+     C'est ce qui a écarté `xlsx` — dont la dernière version publique est vulnérable et le
+     restera, SheetJS ayant quitté npm.
+  3. **Une attente de test peut être fausse sans que le produit le soit.** Le contrôle pgTAP n°8
+     attendait qu'un contributeur voie la demande d'export du DAF. La policy ne l'ouvre qu'au
+     demandeur et aux financiers : c'était l'attente qui était fausse, et le comportement réel est
+     le bon. Lire la policy avant d'accuser le code.
+  4. **`apps/web/AGENTS.md` impose de lire `node_modules/next/dist/docs/` AVANT d'écrire du code
+     Next.** Fait pour les Route Handlers : dans cette version, `params` est une **Promise**, et un
+     helper global `RouteContext<'/chemin/[id]'>` existe (types générés par `next build`/`typegen`).
+  5. **Une version publiée exige `published_at`** (`budget_versions_check`) : un jeu d'essai qui
+     insère `status = 'published'` sans date est refusé par le schéma. Bon invariant, à connaître
+     avant d'écrire un fixture.
+  6. **La table `exports` impose son modèle RBAC par sa RLS d'insertion** : `dimension_id IS NULL`
+     réservé au DAF/DG, sinon une ligne PAR dimension avec `can_export`. L'endpoint s'y conforme —
+     un DAF laisse une trace globale, un contributeur une trace par dimension emportée.
+```
+
+---
+
 ## 2026-09-07 — Une version publiée rejoue enfin son empreinte, et la preuve est en production
 
 ```
