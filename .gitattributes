@@ -1,0 +1,10 @@
+# Fins de ligne : LF partout, y compris sur un poste Windows.
+#
+# `PASSATION.md` était le seul fichier du dépôt en CRLF, et sa réécriture par un
+# outil qui normalise en LF a produit un diff de 1 141 lignes pour un ajout de
+# 129 — le fichier entier, remplacé ligne à ligne, dans un historique où ce
+# fichier est justement celui qu'on relit. Le prévenir coûte une ligne.
+#
+# `text=auto` laisse git détecter le binaire ; `eol=lf` fixe la fin de ligne
+# écrite dans l'arbre de travail, quel que soit `core.autocrlf` de la machine.
+* text=auto eol=lf
