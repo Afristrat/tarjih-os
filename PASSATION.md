@@ -4,7 +4,150 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-07 — Une version publiée rejoue enfin son empreinte, et la preuve est en production
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master`, worktree propre. Dernier commit APPLICATIF **`2aafe07`**,
+              sur lequel tournent **les deux** services (`tarjih-web` ET `tarjih-calculation`),
+              conteneurs `healthy`, tags d'image VÉRIFIÉS (pas déduits du statut) et bascule
+              terminée — un seul conteneur par service.
+  Gates     : typecheck 0, lint 0 warning, **58 tests Node**, **43 tests Python** (34 + 9 nouveaux),
+              build OK, **107 contrôles pgTAP** sur les HUIT fichiers, joués contre la PRODUCTION
+              en begin/rollback, 0 échec — rejoués APRÈS la recette, pas seulement avant.
+              **11 tests Playwright verts** contre `https://tarjih-os.com` (2,2 min).
+  Données   : recomptées à la clôture — 8 versions publiées, 8 montants, 11 parts,
+              **0 montant sans origine**. Runs réussis : 8, dont **2 avec matière d'entrée
+              conservée** et 6 sans (antérieurs, voir ALERTE).
+              **Tenant réel « Afrique Stratégie » : 1 hypothèse, 0 montant — INTACT.**
+  Migrations: registre à **8 lignes** (ajout de `20260907120000`). Rollback écrit ET prouvé.
+  Moteur    : **1.1.0** (était 1.0.0). Les deux côtés bougent ensemble (`EXPECTED_ENGINE_VERSION`).
+  Tasks     : 01→07 ✅ · 08 ⬜ · 09 ✅ · 10 ⬜. Inchangé : ce chantier ferme un DÉFAUT, pas une task.
+
+[FAIT]
+  1. **L'ALERTE N°1 DE LA PASSATION PRÉCÉDENTE EST FERMÉE, ET PROUVÉE EN PRODUCTION.**
+     « Une version publiée cesse d'être reproductible dès qu'on ajoute un compte » : c'était vrai,
+     ça ne l'est plus. La preuve n'est pas un test de laboratoire — c'est le scénario réel qui
+     avait cassé `c6033eb3`. Les deux versions publiées aujourd'hui appartiennent au MÊME tenant ;
+     la première a été publiée quand il portait 9 comptes et 9 périodes, il en porte 10 et 10
+     maintenant, et elle **retrouve toujours son empreinte** (`scripts/verifier-reproductibilite.py`,
+     2/2, code de sortie 0). Mesuré, pas supposé.
+  2. **LE MOTEUR N'EMPREINTE PLUS QUE CE QUE LES HYPOTHÈSES CITENT** (`canonical.snapshot_hash`).
+     Le snapshot continue de transporter tout le référentiel du tenant — mesuré sur les matières
+     conservées : **9 et 10 comptes transportés pour UN seul cité** — mais l'empreinte n'en retient
+     que la part utile. Trois propriétés à ne pas perdre de vue :
+     * le périmètre est **dérivé des contributions résolues**, jamais d'une liste de champs tenue à
+       la main. Un résolveur qui cite un compte produit forcément une contribution dessus, le
+       compte de base d'un `percent_of` compris (sans lui, `base_missing`). Une liste manuelle
+       aurait été un TROISIÈME jumeau à maintenir, après `hypothesis-value.ts`/`resolvers.py` ;
+     * la restriction ne touche QUE le hachage, jamais le calcul : aucun résultat ne change, et
+       une sous-inclusion ne peut pas casser un budget qui marchait ;
+     * elle restaure au passage l'idempotence de `publish_calculation` sur `input_hash`, qui était
+       ILLUSOIRE — deux publications identiques divergeaient dès que le référentiel grossissait.
+  3. **LA MATIÈRE D'ENTRÉE EST CONSERVÉE** (`calculation_runs.input_snapshot`). C'est ce qui rend la
+     promesse vraie de façon PERMANENTE : restreindre l'empreinte corrige le cas mesuré, mais
+     renommer le code d'un compte réellement utilisé l'aurait encore cassée. Elle ne peut pas
+     manquer (l'ancienne fonction à six paramètres est SUPPRIMÉE, pas surchargée), ne peut pas
+     décrire une autre version ni un autre tenant (contrainte de table), et ne se réécrit pas
+     (trigger — qui refuse aussi de REMPLIR un snapshot resté nul).
+  4. **LE MOTEUR EST PASSÉ EN 1.1.0, ET C'EST DÉLIBÉRÉ.** L'empreinte fait partie de son contrat :
+     sans ce numéro, une même matière rendant une autre empreinte serait inexplicable pour qui
+     audite un run ancien. `calculation_runs.engine_version` continue de dire, run par run, sous
+     quelle convention chacun a été empreinté.
+  5. `specs/_source/archi.md` réaligné : `input_snapshot` dans la table des colonnes, le cycle de
+     calcul corrigé (c'est le MOTEUR qui rend `input_hash`, après résolution — pas le backend
+     avant), et ce que la publication refuse désormais.
+
+[ALERTE]
+  - **LES SIX RUNS ANTÉRIEURS N'AURONT JAMAIS DE MATIÈRE, ET LES SIX VERSIONS QU'ILS ONT PUBLIÉES
+    NE SONT PLUS REJOUABLES.** Deux causes distinctes, toutes deux assumées : leur matière n'a
+    jamais été conservée (la fabriquer serait écrire soi-même la preuve qu'on prétend vérifier —
+    le trigger l'interdit), et le moteur 1.1.0 refuse un snapshot `1.0.0`. Vérifié plutôt que
+    supposé : le rejeu rend `engine_version_mismatch`, donc un REFUS motivé, jamais une origine
+    plausible. Les six appartiennent toutes au tenant de recette ; aucun engagement client n'est
+    concerné. Conséquence pratique : `scripts/reconstruire-sources.py` et
+    `scripts/extraire-snapshots-publies.sql` ne peuvent plus rien reconstruire. Ils restent au
+    dépôt comme trace de ce qui a été fait le 2026-09-06, pas comme outils vivants.
+  - **Tarjih reste ABSENT du tableau de `PASSATION-INDEX.md`** (il vit hors de `OneDrive\Projets`).
+    Le hook le retrouve par le CWD, mais il n'apparaît pas dans la liste inter-projets alors qu'il
+    en serait la ligne la plus récente. Écriture hors projet (règle n°6) : signalée, non faite.
+    Ouverte depuis le 2026-08-28, jamais soldée.
+
+[BLOQUE]
+  Rien.
+
+[NEXT]
+  1. **FAIRE PRODUIRE À TARJIH UN CHIFFRE POUR UN TENANT RÉEL.** C'est désormais LE seul jalon
+     produit qui manque, et l'ordre qui l'imposait après l'empreinte est levé : la fenêtre où l'on
+     pouvait corriger l'auditabilité sans casser d'engagement client a été utilisée. Ne demande
+     plus de code. Point d'attention : `a.mansouri@afriquestrategie.com` est le seul DG du tenant
+     réel et son mot de passe n'est pas au coffre.
+  2. Task 08 (exports RBAC), puis 10 (déploiement preview).
+  3. Modèle économique pilote (`prd.md:138`) : question de découverte client, PAS une dette
+     technique. Déclencheur : premier client réel.
+  4. Envisager d'ajouter `verifier-reproductibilite.py` à la recette : il ne tourne aujourd'hui
+     que sur demande, alors qu'il porte la promesse la plus forte du produit. Non fait — ce serait
+     élargir la portée du chantier sans mandat.
+
+[CTX]
+  Session `12b5a4a6`, 2026-09-07, CWD `c:\projets\Budget & CFO`. HEAD de référence au démarrage
+  `b7b069b` ; aucune autre session n'a écrit dans le dépôt (vérifié par `fetch` avant push).
+  Arbitrage tranché par Amine : **A + C** (restreindre l'empreinte ET conserver la matière),
+  proposé avec le coût de rupture mesuré — nul, les 6 empreintes cassées étant toutes de recette.
+
+  Vérifier la reproductibilité (rejouable à volonté, lecture seule) :
+    `cat scripts/extraire-matieres-conservees.sql | ssh … 'docker exec -i <db> psql -U postgres`
+    `   -d postgres -t -A -f -' > matieres.json`
+    `python scripts/verifier-reproductibilite.py < matieres.json`   → code 0 si toutes rejouent.
+    Une extraction VIDE sort en 1 : « rien à vérifier » n'est pas « tout va bien ».
+
+  Le reste du contexte opératoire (serveur, base, uuid Coolify, commandes de gates, pgTAP,
+  déploiement, recette, coffre) est INCHANGÉ — voir l'entrée du 2026-09-06, toujours exacte.
+
+[MEMO]
+  Pièges payés cette session :
+  1. **`jsonb_typeof(NULL)` rend NULL, pas `'null'`.** Le garde `jsonb_typeof(x) <> 'object'` ne
+     voit donc PAS un paramètre absent : le cas le plus banal — ne rien transmettre — glissait
+     jusqu'au contrôle suivant et s'annonçait « décrit une autre version », un message faux.
+     Trouvé par le contrôle pgTAP pendant que la migration n'était encore qu'une transaction
+     d'essai. Écrire `x is null or jsonb_typeof(x) <> 'object'`.
+  2. **UN CONTRÔLE VERT PEUT NE RIEN PROUVER, ET SEULE LA FALSIFICATION LE DIT.** Le contrôle
+     « le compte cité fait partie de l'empreinte » passait en modifiant le CODE du compte — mais
+     l'empreinte bougeait par l'HYPOTHÈSE, qui cite ce code et qui est hachée en entier. Falsifié,
+     il est resté vert : 2 rouges sur 3. Reformulé sur `normal_balance`, que l'hypothèse ne cite
+     pas, il discrimine. Falsifier chaque contrôle, un par un, avant de croire un vert.
+  3. **`awk` sous Git Bash réécrit les fins de ligne** : un extrait de fichier LF ressort en CRLF,
+     et le diff affiche alors TOUT le fichier comme modifié (SOP-022). Extraire en Python avec
+     `newline=""` pour préserver l'original, et vérifier le diff AVANT de conclure.
+  4. **Le corps d'une fonction SQL recréée se DÉRIVE, ne se réécrit pas.** La nouvelle
+     `publish_calculation` a été produite par trois remplacements ciblés sur le corps extrait de la
+     migration précédente, et le diff (3 changements, rien d'autre) l'a prouvé. Le rollback a été
+     vérifié plus loin encore : `pg_get_functiondef` comparé avant/après dans la même transaction
+     rend la fonction **identique à l'octet près**.
+  5. **Changer la signature d'une fonction casse les fichiers pgTAP qui l'appellent** — 06 et 07,
+     dix appels. Complétés par un script qui compte les parenthèses plutôt qu'à la main, diff
+     vérifié ensuite (20 insertions, 10 suppressions : exactement les dix appels).
+  6. **Une migration appliquée avant son déploiement casse la production dans l'intervalle.**
+     La signature à six paramètres disparaît, le code déployé l'appelle encore : la publication a
+     été indisponible entre l'application et la bascule des conteneurs. Sans conséquence ici (aucun
+     tenant réel n'avait de version à publier), mais l'ordre correct est migration → déploiement
+     IMMÉDIAT, et la fenêtre doit être annoncée avant, pas constatée après.
+  7. **Le mot « ponytail » ne dispense pas de placer la correction au bon étage.** La première
+     idée — restreindre le snapshot côté TypeScript — aurait dupliqué en TS la connaissance des
+     champs qui citent un compte, avec un vrai risque de sous-inclusion cassant un calcul. La
+     corriger dans le moteur, sur les contributions déjà résolues, est à la fois plus court, plus
+     sûr, et impossible à désynchroniser.
+```
+
+---
+
 ## 2026-09-06 — Chaque chiffre publié dit d'où il vient, et trois défauts sortent du bois
+
+> **PÉRIMÉE SUR UN POINT, corrigé par l'entrée du 2026-09-07 — ne pas s'y fier :** son ALERTE n°1
+> (« une version publiée cesse d'être reproductible dès qu'on ajoute un compte ») est FERMÉE, et
+> l'arbitrage qu'elle laissait ouvert est TRANCHÉ (A + C). Le contournement qu'elle décrit —
+> reprendre le référentiel daté à `published_at` — n'a plus lieu d'être : la matière d'entrée
+> est désormais conservée, il n'y a plus rien à reconstruire. Le reste de l'entrée demeure exact.
 
 ```
 [ETAT]
