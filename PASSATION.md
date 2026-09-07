@@ -78,13 +78,23 @@
     Écriture hors projet (règle n°6) : signalée, jamais faite. À ajouter par Amine.
 
 [BLOQUE]
-  Rien techniquement. Le seul jalon PRODUIT bloqué par un accès : faire produire un chiffre à un
-  TENANT RÉEL — `a.mansouri@afriquestrategie.com` est le seul DG du tenant « Afrique Stratégie »
-  et son mot de passe n'est pas au coffre.
+  **RIEN. L'accès au tenant RÉEL est débloqué depuis le 2026-09-07.** Sur décision explicite
+  d'Amine — qui revient sur la règle « le mot de passe du DG ne va pas au coffre » — le compte
+  `a.mansouri@afriquestrategie.com` a un nouveau mot de passe, GÉNÉRÉ sans jamais être imprimé et
+  déposé au coffre sous **`TARJIH_DG_REEL_PW`** (variante C de la SOP-001). L'ancien est mort.
+  L'empreinte a été posée dans une transaction qui se vérifiait elle-même — si elle n'avait pas
+  rouvert le compte, rien n'aurait été écrit et l'ancien accès aurait survécu — puis la connexion
+  a été **prouvée dans un navigateur** sur `https://tarjih-os.com` (atterrissage `/app`, tenant
+  affiché), parce qu'une empreinte correcte ne prouve pas qu'une session s'ouvre.
+  ⚠️ **Ce compte écrit dans la PRODUCTION d'Amine.** Publier une version avec lui crée de la
+  donnée IMMUABLE dans « Afrique Stratégie ». Le tenant est resté INTACT à ce stade (1 hypothèse,
+  0 montant, recompté après la connexion) : la publication reste à décider par Amine, elle n'a
+  pas été faite.
 
 [NEXT]
-  1. **Faire produire à Tarjih un chiffre pour un tenant réel** (cf. [BLOQUE]) — seul jalon produit
-     qui manque, et il ne demande plus une ligne de code.
+  1. **Faire produire à Tarjih un chiffre pour un tenant réel** — l'accès n'est plus un obstacle
+     (cf. [BLOQUE]) ; ne reste que la décision d'Amine d'écrire pour de bon dans « Afrique
+     Stratégie », puisque la publication y est irréversible.
   2. **Task 10 (déploiement preview)** — dernière tâche du découpage, P1, estimée 1 h.
   3. Trancher : l'export doit-il porter les parts d'hypothèses ? (première ALERTE ci-dessus).
   4. Modèle économique pilote (`prd.md:138`) : question de découverte client, déclencheur = premier
