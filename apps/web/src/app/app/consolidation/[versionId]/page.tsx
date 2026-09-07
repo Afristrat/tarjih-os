@@ -385,7 +385,14 @@ export default async function ConsolidationPage({
                 Calculer et publier
               </button>
             </form>
-          ) : null}
+          ) : (
+            // Un lien ordinaire, et non un bouton : le navigateur télécharge
+            // seul, sans script. Le fichier est borné au périmètre du demandeur
+            // par l'endpoint, jamais par ce lien.
+            <a className="console-button" href={`/api/exports/${version.id}`}>
+              Exporter le classeur
+            </a>
+          )}
         </div>
 
         <dl className="fact-list">

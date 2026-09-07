@@ -115,6 +115,7 @@ export default async function BudgetVersionPage({
   const cycleName = cycleResult.data?.name ?? "Cycle";
   const frozen = version.status === "published";
   const contributable = dimensionsFor(context, grants, dimensions, "contribute");
+  const exportable = dimensionsFor(context, grants, dimensions, "export");
   const dimensionName = (id: string): string =>
     dimensions.find((dimension) => dimension.id === id)?.name ?? "Dimension hors périmètre";
 
@@ -151,6 +152,17 @@ export default async function BudgetVersionPage({
             ? "Cette version est publiée : son contenu est figé. Ni une correction ni une hypothèse de plus n’y sont possibles — la suite se joue dans une version suivante."
             : "Chaque hypothèse est proposée dans une dimension attribuée, puis décidée par un approbateur de cette même dimension."}
         </p>
+
+        {/* Un contributeur n'accède pas à la consolidation : sans ce lien, son
+            export ne serait atteignable qu'en devinant une adresse. Le fichier
+            reste borné à ses dimensions par l'endpoint, jamais par ce lien. */}
+        {frozen && exportable.length > 0 ? (
+          <p>
+            <a className="console-button" href={`/api/exports/${version.id}`}>
+              Exporter mon périmètre
+            </a>
+          </p>
+        ) : null}
       </div>
 
       {notice ? (
