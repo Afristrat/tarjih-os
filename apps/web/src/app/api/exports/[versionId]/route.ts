@@ -95,9 +95,15 @@ export async function GET(
   // LE filtrage. `budget_values` est protégée par une RLS fondée sur la
   // permission `read` : sans ce `in`, une dimension lisible mais NON exportable
   // remonterait et partirait dans le fichier.
+  //
+  // `amount::text` n'est pas un ornement. Un `numeric` sans cast est sérialisé
+  // en NOMBRE JSON : il traverse alors un flottant binaire avant même que ce
+  // code ne le voie, et la précision perdue là ne se rattrape plus. Le cast le
+  // fait rendre par PostgreSQL sous sa forme exacte, qui est aussi celle que le
+  // classeur écrit — `workbook.ts` n'accepte que du texte, pour cette raison.
   const { data: rawValues, error: valuesError } = await supabase
     .from("budget_values")
-    .select("dimension_id, account_id, period_id, amount, currency")
+    .select("dimension_id, account_id, period_id, amount::text, currency")
     .eq("tenant_id", tenant.tenantId)
     .eq("version_id", versionId)
     .in("dimension_id", idsAutorises);
@@ -148,6 +154,11 @@ export async function GET(
     // Une ligne dont la dimension n'est pas dans le périmètre autorisé ne peut
     // pas exister ici — la requête l'a écartée, et la RLS avant elle. Si elle
     // existait malgré tout, la laisser tomber vaut mieux que l'écrire.
+    //
+    // Mais toutes ces colonnes sont `not null` : une ligne qui échoue ici est
+    // une ANOMALIE, pas un filtrage. La compter, et refuser l'export plus bas
+    // si le compte n'y est pas. Un classeur amputé en silence est le pire des
+    // trois issues possibles — il est reçu, signé, et faux.
     if (!dimensionId || !accountId || !periodId || !montant || !devise || !nom) {
       continue;
     }
@@ -160,6 +171,14 @@ export async function GET(
       dimensionId,
       period: libellePeriode.get(periodId) ?? periodId,
     });
+  }
+
+  // Le contrôle qui manquait. Il a un coût nul et une portée large : c'est
+  // exactement ce défaut — un montant rendu par PostgREST sous une forme que le
+  // garde ci-dessus rejetait — qui a produit un classeur ne portant que ses
+  // en-têtes, sans qu'aucune erreur ne le dise.
+  if (lignes.length !== (rawValues ?? []).length) {
+    return refus("Export interrompu : une ligne publiée n'a pas pu être lue.", 500);
   }
 
   const fichier = await buildWorkbook(lignes);
