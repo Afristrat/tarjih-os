@@ -35,7 +35,7 @@ Tarjih est un monolithe web Next.js adossé à Supabase pour les transactions, l
 | `budget_versions` | snapshot versionné | `id`, `tenant_id`, `cycle_id`, `version_no`, `status`, `parent_version_id`, `input_hash` |
 | `hypotheses` | propositions et hypothèses approuvées | `id`, `tenant_id`, `version_id`, `dimension_id`, `parameter_key`, `value`, `unit`, `status`, `row_version` |
 | `hypothesis_decisions` | décisions humaines append-only | `id`, `tenant_id`, `hypothesis_id`, `decision`, `decided_by`, `reason`, `created_at` |
-| `calculation_runs` | exécutions Python | `id`, `tenant_id`, `version_id`, `engine_version`, `input_hash`, `output_hash`, `status` |
+| `calculation_runs` | exécutions Python | `id`, `tenant_id`, `version_id`, `engine_version`, `input_hash`, `input_snapshot`, `output_hash`, `status` |
 | `budget_values` | résultats publiés | `id`, `tenant_id`, `version_id`, `calculation_run_id`, `dimension_id`, `account_id`, `period_id`, `amount`, `currency` |
 | `budget_value_sources` | part exacte de chaque hypothèse dans un montant publié | `id`, `tenant_id`, `budget_value_id`, `hypothesis_id`, `amount` |
 | `audit_events` | piste d’audit append-only | `id`, `tenant_id`, `actor_id`, `action`, `object_type`, `object_id`, `before_hash`, `after_hash`, `created_at` |
@@ -90,16 +90,26 @@ Le rôle ne remplace pas les grants dimensionnels. Un administrateur technique n
 ```text
 1. Le backend verrouille logiquement la version candidate.
 2. Il sélectionne uniquement les hypothèses approuvées et autorisées.
-3. Il sérialise un snapshot canonique et calcule `input_hash`.
+3. Il sérialise un snapshot canonique.
 4. Il appelle le moteur Python avec `engine_version` et un identifiant idempotent.
-5. Python valide le schéma, calcule et retourne résultats + `output_hash`.
+5. Python valide le schéma, calcule, et retourne résultats + `input_hash` + `output_hash`.
+   L’empreinte d’entrée est calculée APRÈS résolution et ne porte que le référentiel
+   que les hypothèses citent réellement : le snapshot transporte tout celui du tenant,
+   et sans ce filtrage, ajouter un compte qu’aucun calcul ne touche rendait une version
+   publiée irreproductible.
 6. Le backend réconcilie les identités comptables et le périmètre.
-7. Une transaction insère les valeurs ET la part de chaque hypothèse dans chacune,
-   marque le run réussi et publie la version.
+7. Une transaction insère les valeurs, la part de chaque hypothèse dans chacune ET la
+   matière d’entrée qui les a produites, marque le run réussi et publie la version.
 8. En cas d’échec, aucun `budget_value` publié n’est visible.
-9. Un montant sans part, une part orpheline ou une part citant l’hypothèse d’une
-   autre version font échouer la publication entière.
+9. Un montant sans part, une part orpheline, une part citant l’hypothèse d’une
+   autre version, ou une matière d’entrée absente ou décrivant une autre version
+   font échouer la publication entière.
 ```
+
+Rejouer une version publiée doit rendre son `input_hash`. Cela suppose que la matière
+d’entrée survive : elle est conservée dans `calculation_runs.input_snapshot`, immuable, et
+`scripts/verifier-reproductibilite.py` le vérifie en la rejouant. La reconstruire depuis la
+base ne suffirait pas — le référentiel d’un tenant continue de vivre après la publication.
 
 L’échelle des montants et celle des parts diffèrent volontairement : un montant publié est un
 `numeric(24, 6)`, une part est un `numeric` exact. L’arrondi de la somme des parts d’un montant

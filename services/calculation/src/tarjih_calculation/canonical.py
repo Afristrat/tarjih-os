@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
 
 from tarjih_calculation.contracts import BudgetValue, Snapshot, to_publishable
+from tarjih_calculation.resolvers import Contribution
 
 
 def normalize_amount(amount: Decimal) -> str:
@@ -72,8 +74,31 @@ def _canonical_value(raw: Any) -> Any:
     return raw
 
 
-def snapshot_hash(snapshot: Snapshot) -> str:
-    """Empreinte de la matière d'entrée, indépendante de l'ordre de lecture."""
+def snapshot_hash(snapshot: Snapshot, contributions: Sequence[Contribution]) -> str:
+    """Empreinte de la matière d'entrée, indépendante de l'ordre de lecture.
+
+    Elle ne porte QUE le référentiel que les hypothèses citent réellement. Le
+    snapshot, lui, transporte tout celui du tenant : sans ce filtrage, ajouter un
+    compte qu'aucun calcul ne touche changeait l'empreinte d'entrée, et une
+    version publiée cessait d'être reproductible sans qu'aucun de ses chiffres
+    n'ait bougé — mesuré en production sur la version `c6033eb3`, dont le tenant
+    avait simplement gagné un compte et une période depuis sa publication.
+
+    Le périmètre se déduit des CONTRIBUTIONS, jamais d'une relecture des champs
+    d'une hypothèse : un résolveur qui cite un compte produit forcément une
+    contribution dessus (y compris le compte de base d'un `percent_of`, qui doit
+    exister en première passe sous peine de `base_missing`). Cette dérivation ne
+    peut donc pas se désynchroniser des résolveurs, ce qu'une liste de champs
+    tenue à la main ferait au premier modèle ajouté.
+
+    Ce qui reste dans l'empreinte est ce qui décrit les objets cités — le code
+    d'un compte, les bornes d'une période. Les modifier change bien l'empreinte :
+    ce n'est plus du bruit, c'est une matière d'entrée différente.
+    """
+    used_accounts = {contribution.account_id for contribution in contributions}
+    used_periods = {contribution.period_id for contribution in contributions}
+    used_dimensions = {contribution.dimension_id for contribution in contributions}
+
     payload = {
         "engine_version": snapshot.engine_version,
         "model": snapshot.model,
@@ -89,6 +114,7 @@ def snapshot_hash(snapshot: Snapshot) -> str:
                     "normal_balance": account.normal_balance,
                 }
                 for account in snapshot.accounts
+                if account.id in used_accounts
             ),
             key=lambda item: item["id"],
         ),
@@ -96,6 +122,7 @@ def snapshot_hash(snapshot: Snapshot) -> str:
             (
                 {"id": period.id, "starts_on": period.starts_on, "ends_on": period.ends_on}
                 for period in snapshot.periods
+                if period.id in used_periods
             ),
             key=lambda item: item["id"],
         ),
@@ -103,6 +130,7 @@ def snapshot_hash(snapshot: Snapshot) -> str:
             (
                 {"id": dimension.id, "code": dimension.code, "kind": dimension.kind}
                 for dimension in snapshot.dimensions
+                if dimension.id in used_dimensions
             ),
             key=lambda item: item["id"],
         ),

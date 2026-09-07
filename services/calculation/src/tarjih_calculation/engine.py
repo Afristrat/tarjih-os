@@ -24,7 +24,12 @@ from tarjih_calculation.contracts import (
 )
 from tarjih_calculation.resolvers import Contribution, resolve
 
-ENGINE_VERSION: Final[str] = "1.0.0"
+# 1.1.0 : `input_hash` ne porte plus que le référentiel cité par les hypothèses.
+# La version du moteur est ce qui EXPLIQUE qu'une même matière rende désormais
+# une autre empreinte ; sans ce numéro, l'écart serait inexplicable pour qui
+# audite un run ancien. Les runs `1.0.0` restent lisibles tels quels, ils ne sont
+# simplement plus rejouables à l'identique par ce moteur-ci.
+ENGINE_VERSION: Final[str] = "1.1.0"
 
 
 def _approved_only(snapshot: Snapshot) -> tuple[Hypothesis, ...]:
@@ -106,8 +111,10 @@ def calculate(payload: Any) -> CalculationResult:
             f" moteur présent en {ENGINE_VERSION}",
         )
 
-    input_hash = snapshot_hash(snapshot)
+    # La résolution précède l'empreinte : celle-ci ne porte que le référentiel
+    # réellement cité, et c'est la résolution qui dit lequel (`snapshot_hash`).
     contributions = resolve(snapshot, _approved_only(snapshot))
+    input_hash = snapshot_hash(snapshot, contributions)
     values = _aggregate(contributions)
     sources = _sources(contributions)
     identities.check(snapshot, contributions, values, sources)
