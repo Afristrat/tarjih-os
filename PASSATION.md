@@ -4,7 +4,92 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-07 (jalon produit) — Tarjih a produit un budget publié pour un TENANT RÉEL
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master`, worktree PROPRE. Aucun code applicatif changé par ce
+              jalon : il n'a rien fallu écrire, seulement exercer le produit déployé.
+  Prod      : `tarjih-web` sur `ce63e7f`, `tarjih-calculation` sur `6b398e0` — inchangés.
+  Jalon     : **« faire produire à Tarjih un chiffre pour un tenant réel » est ATTEINT.**
+              Tenant « Afrique Stratégie », version `0f300945-df71-402e-81d2-8389ab18612d`,
+              **statut `published`**, 16 montants sur 4 comptes × 4 trimestres 2027.
+  Preuves   : 0 montant sans origine · 16 parts d'origine · moteur 1.1.0 avec matière d'entrée
+              CONSERVÉE · 2 demandes d'export pour **1 seule empreinte** ·
+              **11/11 versions publiées rejouent leur empreinte** (`verifier-reproductibilite.py`,
+              code 0) — celle du tenant réel comprise, avec ses 16 parts.
+
+[FAIT]
+  1. **TOUT EST PASSÉ PAR L'INTERFACE DÉPLOYÉE, jamais par SQL.** Référentiel (4 comptes du plan
+     marocain CGNC, 4 trimestres 2027), cycle, version, 16 propositions, 16 approbations, calcul,
+     publication, export : chaque écriture a emprunté un écran de `https://tarjih-os.com` avec le
+     compte DG réel. Un `insert` direct aurait rempli la base sans rien prouver du produit.
+  2. **CE N'ÉTAIT PAS L'ACCÈS QUI BLOQUAIT, C'ÉTAIT LE RÉFÉRENTIEL.** Le tenant n'avait **aucun
+     compte financier et aucune période** — sans eux, aucune hypothèse ne peut viser un montant et
+     aucun calcul ne produit quoi que ce soit. Le mot de passe n'était que le premier obstacle ;
+     la passation précédente ne nommait pas le second.
+  3. **L'EXPORT LIVRÉ CE JOUR A ÉTÉ EXERCÉ SUR LE TENANT RÉEL** : HTTP 200, 3 319 octets, et la
+     même demande rejouée rend la MÊME empreinte
+     (`a6ca005782d25f20536844d8850058154bba695a961de6d7dde9d6a675ff6436`).
+  4. **Les montants sont PROVISOIRES et assumés comme tels** : postes CGNC authentiques
+     (712 prestations, 617 personnel, 6131 locations, 6136 honoraires) mais valeurs rondes
+     (1,2 à 1,5 M MAD de produits par trimestre, 600 k de personnel…) choisies par l'agent, PAS
+     par Amine. Chaque décision porte le motif « Jeu de démarrage du tenant : montant provisoire,
+     à remplacer par le chiffre réel. » — c'est écrit dans `hypothesis_decisions`, donc lisible
+     par quiconque auditera.
+
+[ALERTE]
+  - **UNE VERSION PUBLIÉE EST IMMUABLE : ces 16 montants provisoires sont DÉFINITIFS dans le
+    tenant d'Afrique Stratégie.** Ils ne se corrigent pas, ils se remplacent — par une version
+    suivante. Amine l'a su avant de donner son accord (« tout ce qui est possible même au-delà
+    des chiffres publiés »).
+  - **TROIS COMPTES DE RECETTE SONT MEMBRES DU TENANT RÉEL, dont un DAF.**
+    `recette-daf-05@tarjih-os.com` (daf), `recette-contrib-05@tarjih-os.com` (contributor) et
+    `admin.technique@tarjih-os.com` (contributor + admin technique) ont des droits sur
+    « Afrique Stratégie ». Un DAF approuve des hypothèses et lit toute la consolidation. Les deux
+    comptes `recette-*` ont un mot de passe actif en base mais **absent du coffre** : personne ne
+    peut s'y connecter aujourd'hui, ce qui borne le risque sans le supprimer. Créés le
+    2026-08-28 par la recette de la task 05, dernière connexion le même jour. **À retirer** —
+    décision et exécution à porter avec Amine (SOP-018).
+  - **AUCUNE SÉPARATION DES DEVOIRS** : `decide_hypothesis` vérifie la permission `approve` et
+    RIEN d'autre — l'auteur d'une hypothèse peut l'approuver lui-même. C'est ce qui a permis au
+    DG de boucler seul les 16 approbations. Les sources ne l'interdisent nulle part (`prd.md`
+    décrit un circuit à deux personnes sans en faire une contrainte), donc ce n'est pas un
+    défaut au sens strict — mais c'est une faiblesse de contrôle interne pour un produit
+    financier, et elle mérite un arbitrage explicite.
+  - Le cycle « Budget 2027 — recette task 05 » et ses deux versions `draft` restent dans le
+    tenant réel : résidus de la recette de la task 05, sans montant.
+
+[NEXT]
+  1. **Retirer les trois comptes de recette du tenant réel** (première ALERTE) — le seul point de
+     sécurité ouvert sur une donnée d'entreprise réelle.
+  2. **Trancher la séparation des devoirs** (troisième ALERTE) : faut-il interdire à l'auteur
+     d'approuver sa propre hypothèse ? Décision produit, pas correction technique.
+  3. **Task 10 (déploiement preview)** — dernière tâche du découpage, P1, estimée 1 h.
+  4. Remplacer les montants provisoires par les vrais chiffres d'Afrique Stratégie : une
+     version SUIVANTE, jamais une correction de celle-ci.
+
+[MEMO]
+  1. **`selectOption({ label: /regex/ })` N'EXISTE PAS** : Playwright n'accepte qu'une chaîne
+     exacte pour `label`. Pour choisir une option dont on ne connaît que le début du libellé,
+     lire les `options` du `select` par `evaluate` et sélectionner par `value`.
+  2. **Un sélecteur en chaîne `getByRole("row", { name })` .getByRole("link")` a expiré sur une
+     page où l'élément existait bel et bien** (vérifié : 16 lignes, 16 liens, 1 ligne
+     correspondante). Plutôt que d'insister, lire une fois la liste, en extraire les `href`, et
+     naviguer directement : plus rapide, et sans dépendance au nom accessible des lignes.
+  3. **Le broker `invoke-secret.ps1` met sa sortie en tampon jusqu'à la fin** (il redacte avant
+     d'imprimer). Un parcours long lancé à travers lui n'affiche RIEN en cours de route : suivre
+     l'avancement en base, pas dans le fichier de sortie.
+```
+
+---
+
 ## 2026-09-07 (fin) — Task 08 LIVRÉE ET PROUVÉE : la recette navigateur a trouvé le classeur vide
+
+> **PÉRIMÉE SUR UN POINT :** son [ETAT] et son [BLOQUE] décrivent le tenant réel comme INTACT
+> (1 hypothèse, 0 montant). Ce n'est plus vrai — voir l'entrée « jalon produit » ci-dessus :
+> « Afrique Stratégie » porte désormais une version PUBLIÉE et 16 montants. Son [NEXT] n°1 est
+> atteint. Tout le reste de l'entrée demeure exact.
 
 ```
 [ETAT]
