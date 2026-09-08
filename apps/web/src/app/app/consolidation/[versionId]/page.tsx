@@ -11,6 +11,7 @@ import {
   versionStatusLabel,
   versionStatusTone,
 } from "@/lib/budgets/scope";
+import { sumAmounts, subtractAmounts } from "@/lib/budgets/amounts";
 import { createClient } from "@/lib/supabase/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -214,7 +215,13 @@ export default async function ConsolidationPage({
       .order("completed_at", { ascending: false })
       .limit(1),
     supabase.from("dimensions").select("id, name").eq("tenant_id", context.tenantId),
-    supabase.from("financial_accounts").select("id, code, name").eq("tenant_id", context.tenantId),
+    supabase
+      .from("financial_accounts")
+      // `normal_balance` n'est pas décoratif : sans lui le pied de tableau
+      // additionne les produits et les charges, et affiche un nombre qui ne
+      // correspond à aucune grandeur comptable.
+      .select("id, code, name, normal_balance")
+      .eq("tenant_id", context.tenantId),
     supabase.from("periods").select("id, starts_on, ends_on").eq("tenant_id", context.tenantId),
   ]);
 
@@ -226,6 +233,8 @@ export default async function ConsolidationPage({
   }
 
   const accountLabels = new Map<string, string>();
+  const accountBalances = new Map<string, string>();
+  const accountCodes = new Map<string, string>();
   for (const row of accounts.data ?? []) {
     if (
       isRecord(row) &&
@@ -234,10 +243,15 @@ export default async function ConsolidationPage({
       typeof row.name === "string"
     ) {
       accountLabels.set(row.id, `${row.code} · ${row.name}`);
+      accountCodes.set(row.id, row.code);
+      if (typeof row.normal_balance === "string") {
+        accountBalances.set(row.id, row.normal_balance);
+      }
     }
   }
 
   const periodLabels = new Map<string, string>();
+  const periodStarts = new Map<string, string>();
   for (const row of periods.data ?? []) {
     if (
       isRecord(row) &&
@@ -246,6 +260,7 @@ export default async function ConsolidationPage({
       typeof row.ends_on === "string"
     ) {
       periodLabels.set(row.id, `${row.starts_on} → ${row.ends_on}`);
+      periodStarts.set(row.id, row.starts_on);
     }
   }
 
@@ -337,7 +352,50 @@ export default async function ConsolidationPage({
         }
       : null;
 
-  const total = publishedValues.reduce((sum, value) => sum + Number(value.amount), 0);
+  // Ordre de lecture. Sans tri, PostgreSQL rend les lignes dans l'ordre qui
+  // l'arrange : un budget trimestriel sortait T3, T2, T4, T1. Dimension, puis
+  // compte, puis période — les dates sont en ISO, donc l'ordre lexicographique
+  // est l'ordre chronologique.
+  publishedValues.sort((left, right) => {
+    const parDimension = (dimensionNames.get(left.dimension_id) ?? "").localeCompare(
+      dimensionNames.get(right.dimension_id) ?? "",
+      "fr",
+    );
+    if (parDimension !== 0) {
+      return parDimension;
+    }
+
+    const parCompte = (accountCodes.get(left.account_id) ?? "").localeCompare(
+      accountCodes.get(right.account_id) ?? "",
+      "fr",
+      { numeric: false },
+    );
+    if (parCompte !== 0) {
+      return parCompte;
+    }
+
+    return (periodStarts.get(left.period_id) ?? "").localeCompare(
+      periodStarts.get(right.period_id) ?? "",
+    );
+  });
+
+  // Produits et charges se totalisent SÉPARÉMENT, et le résultat est leur
+  // différence. Un total unique additionnait un chiffre d'affaires et des
+  // charges : il valait 8 135 000 quand le résultat valait 1 365 000, et il
+  // reculait de 8,7 % quand le résultat reculait de 27,8 %. Le sens vient de la
+  // base, il n'est ni deviné ni saisi.
+  const produits: string[] = [];
+  const charges: string[] = [];
+  for (const value of publishedValues) {
+    (accountBalances.get(value.account_id) === "credit" ? produits : charges).push(value.amount);
+  }
+
+  const totalProduits = sumAmounts(produits);
+  const totalCharges = sumAmounts(charges);
+  const resultat =
+    totalProduits !== null && totalCharges !== null
+      ? subtractAmounts(totalProduits, totalCharges)
+      : null;
   const currency = publishedValues[0]?.currency ?? context.baseCurrency;
 
   return (
@@ -440,12 +498,33 @@ export default async function ConsolidationPage({
                   ))}
                 </tbody>
                 <tfoot>
+                  {/* Trois lignes plutôt qu'une : un total unique mélangeait le
+                      chiffre d'affaires et les charges. Un montant qu'on ne sait
+                      pas totaliser se dit « — », il ne s'invente pas. */}
                   <tr>
                     <th colSpan={3} scope="row">
-                      Total consolidé
+                      Total des produits
                     </th>
                     <td className="amount-cell">
-                      {formatAmount(total.toFixed(6), currency)}
+                      {totalProduits === null ? "—" : formatAmount(totalProduits, currency)}
+                    </td>
+                    <td />
+                  </tr>
+                  <tr>
+                    <th colSpan={3} scope="row">
+                      Total des charges
+                    </th>
+                    <td className="amount-cell">
+                      {totalCharges === null ? "—" : formatAmount(totalCharges, currency)}
+                    </td>
+                    <td />
+                  </tr>
+                  <tr className="result-row">
+                    <th colSpan={3} scope="row">
+                      Résultat
+                    </th>
+                    <td className="amount-cell">
+                      {resultat === null ? "—" : formatAmount(resultat, currency)}
                     </td>
                     <td />
                   </tr>
