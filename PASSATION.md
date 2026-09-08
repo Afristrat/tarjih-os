@@ -4,7 +4,119 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-08 (suite) — LE MOTEUR N'AVAIT JAMAIS TOURNÉ : trois modèles codés, un seul atteignable
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`3ed255c`** (applicatif), worktree PROPRE.
+  Prod      : `tarjih-web` sur **`3ed255c`** (tag d'image vérifié, `healthy`) ·
+              `tarjih-calculation` sur `6b398e0` — aucun fichier de `services/` modifié depuis.
+  Gates     : typecheck 0 · lint 0 · **69 tests Node** (68 + 6 contrôles de taux) ·
+              **43 tests Python** · build OK.
+  Tenant réel: « Afrique Stratégie » porte maintenant **TROIS versions publiées** —
+              `0f300945…` (2027 v1), `a25544b3…` (2027 v2, révision),
+              **`314e1200-4f41-4c99-a301-367374191b6c` (Budget 2028, modèle `driver`)**.
+  Tasks     : 01→09 ✅ · 10 ⬜.
+
+[FAIT]
+  1. **AMINE A EU RAISON DE CASSER LA SIMULATION PRÉCÉDENTE.** Elle ne montrait qu'une SAISIE
+     consolidée : 16 montants tapés à la main, réaffichés. Le modèle de la version s'appelait
+     littéralement « Saisie directe » — capturé sans être vu. Aucune capacité de CALCUL n'avait
+     été exercée. La critique portait sur le produit ET sur le livrable ; les deux étaient justes.
+  2. **CAUSE RACINE, PROUVÉE EN PRODUCTION : le cœur de valeur était inatteignable.**
+     Le moteur résout **trois modèles** (`direct`, `driver`, `cost_center`) et **deux inducteurs**
+     (`volume_price`, `percent_of` — `resolvers.py:34`). Mesuré avant correctif : **22 versions en
+     base, dont 18 publiées, TOUTES en `direct`**. Cause : `budget_versions.calculation_model` a
+     pour défaut `'direct'::text` et **`createBudgetVersion` ne l'écrivait JAMAIS** — il ne faisait
+     que le lire pour choisir la forme du formulaire. Le bloc d'inducteurs existait déjà, gardé
+     derrière `version.calculation_model === "driver"`, que rien ne pouvait produire. `percent_of`
+     n'avait **aucun champ** — et un commentaire de `hypothesis-value.ts` le disait depuis
+     l'origine : « le moteur accepte ce troisième inducteur alors qu'aucun formulaire ne le
+     produit encore ». Le trou était documenté et jamais comblé.
+  3. **CORRECTIF LIVRÉ ET DÉPLOYÉ** (`3ed255c`) : le modèle se choisit **à l'ouverture de la
+     version** (seul moment honnête — il décide de ce que le moteur saura faire, et ne se change
+     plus une fois des hypothèses déposées) ; le formulaire expose l'inducteur, le taux et le
+     compte de base ; `buildPercentOfValue` valide les bornes `RATE_MIN`/`RATE_MAX` **à la saisie**
+     — un taux hors bornes passait sinon l'approbation et faisait échouer la publication de TOUTE
+     la version, hypothèses des autres comprises. Les libellés de modèles, dupliqués dans la page
+     de consolidation, vivent désormais à côté de la liste qu'ils nomment.
+  4. **PREMIÈRE VERSION `driver` JAMAIS PUBLIÉE, et le moteur calcule juste.** Budget 2028 :
+     CA = jours × TJM (320/340/240/360 × 4 500) ; commission d'apport = **5 % du CA**, résolue en
+     SECONDE passe sur une base que le moteur venait lui-même de calculer.
+     Résultat annoncé AVANT mesure, puis vérifié en base, exact au dirham :
+     712 = **5 670 000** · 6136 = **283 500** · 617 = **2 496 000** · 6131 = **360 000** ·
+     résultat = **2 530 500 MAD**. **Aucun de ces 16 montants n'a été saisi.**
+
+[ALERTE]
+  **Défauts mesurés, NON corrigés — le premier fait afficher un chiffre faux :**
+  1. **LE « TOTAL CONSOLIDÉ » IGNORE LE SENS COMPTABLE.**
+     `consolidation/[versionId]/page.tsx` — `reduce((sum, v) => sum + Number(v.amount), 0)`
+     additionne produits ET charges alors que `financial_accounts.normal_balance` est en base.
+     Mesuré sur 2027 v2 : **8 135 000 MAD affichés** contre **1 365 000** de résultat. Pire, la
+     VARIATION : le total affiché recule de **8,7 %** quand le résultat recule de **27,8 %**.
+  2. **OUVRIR UNE VERSION NE REPREND RIEN de la précédente** (`createBudgetVersion` insère une
+     version vide). Mesuré : 6 lignes à changer, **10 ressaisies à l'identique**. À 150-300 lignes,
+     la révision devient inutilisable — or l'immuabilité impose de passer par la version suivante.
+  3. **PÉRIODES NON TRIÉES** à l'écran de consolidation (T3, T2, T4, T1) : aucun `order by` sur
+     la requête `budget_values`. Correctif à coût nul.
+  4. **AUCUN ÉCRAN NE COMPARE DEUX VERSIONS** — « qu'est-ce qui a changé ? » n'a pas de réponse
+     dans le produit ; le comparatif de l'artifact a dû être reconstruit en base.
+  5. Toujours ouverts : **pas de séparation des devoirs** (`decide_hypothesis` ne vérifie que la
+     permission `approve`) · l'export ne porte pas les origines · **trois comptes de recette
+     membres du tenant réel, dont un DAF** (`recette-daf-05`, `recette-contrib-05`,
+     `admin.technique`) — mots de passe absents du coffre, donc risque borné, pas supprimé.
+  6. `cost_center` est désormais SÉLECTIONNABLE mais **jamais exercé** : il restreint aux
+     dimensions `department` et aux comptes de charge, et ces refus n'ont pas été éprouvés en
+     production.
+
+[BLOQUE]
+  Rien. L'accès DG réel est au coffre (`TARJIH_DG_REEL_PW`).
+
+[NEXT]
+  1. **Corriger le total consolidé** (ALERTE 1) — seul défaut qui affiche un chiffre faux ;
+     prévoir des sous-totaux produits / charges plutôt qu'une somme unique.
+  2. **Reprise de la version précédente à l'ouverture** (ALERTE 2).
+  3. Trier les périodes (ALERTE 3) : un `order by`.
+  4. Éprouver `cost_center` et ses refus (ALERTE 6) ; recette e2e du modèle `driver`, qui n'a
+     aucun parcours Playwright à ce jour.
+  5. Retirer les trois comptes de recette du tenant réel.
+  6. Task 10 (déploiement preview), dernière tâche du découpage.
+
+[CTX]
+  Session `7f92c561`, 2026-09-07/08, CWD `c:\projets\Budget & CFO`.
+  Commits de la session : `6b398e0` `5e1d3af` `ce63e7f` (task 08) · `87b0674` (.gitattributes) ·
+  **`3ed255c`** (modèles de calcul exposés) + entrées documentaires.
+  Artifact « Tarjih, écran par écran » (parcours capturé, chronos, comparatif) :
+  https://claude.ai/code/artifact/75cc0f74-50aa-4352-85e2-8333ac5c1aac
+  Contexte opératoire (serveur, base, uuid Coolify, gates, pgTAP, recette, déploiement, coffre) :
+  INCHANGÉ — entrée du 2026-09-06, section [CTX].
+
+[MEMO]
+  1. **UNE DÉMONSTRATION QUI N'EXERCE QUE LE CHEMIN LE PLUS SIMPLE NE DÉMONTRE RIEN.** J'ai pris
+     le modèle par défaut sans le questionner et appelé ça « toute la chaîne de valeur ». Le nom
+     du modèle était affiché à l'écran que j'ai capturé. **Avant de simuler : lister ce que le
+     système sait faire, et vérifier lequel de ces chemins on emprunte.**
+  2. **UNE COLONNE À VALEUR PAR DÉFAUT QUE PERSONNE N'ÉCRIT EST UNE FONCTIONNALITÉ MORTE.** Rien
+     ne casse, aucun test ne tombe, la base est cohérente — et la moitié du produit est
+     inaccessible. Chercher : quelles colonnes n'ont qu'une seule valeur distincte en production ?
+     C'est la requête qui révèle ce genre de trou.
+  3. **Un commentaire de code peut porter un défaut connu depuis des mois.** Celui de
+     `hypothesis-value.ts` disait exactement ce qui manquait. Grep des commentaires qui décrivent
+     un manque (« pas encore », « aucun formulaire », « à faire ») : c'est un inventaire gratuit.
+  4. **Le contrôle de feuille de style du projet attrape les classes CSS inventées** — deux de mes
+     classes n'existaient pas, le test 68 l'a dit tout de suite. Ne pas le contourner.
+  5. **Annoncer le résultat attendu AVANT de le mesurer** transforme une vérification en preuve :
+     les cinq totaux du budget 2028 étaient écrits avant la requête.
+```
+
+---
+
 ## 2026-09-08 — Simulation de bout en bout : le produit marche, et il affiche un chiffre FAUX
+
+> **COMPLÉTÉE ET EN PARTIE PÉRIMÉE — voir l'entrée « (suite) » ci-dessus.** Sa conclusion (« le
+> produit marche ») était fondée sur une simulation qui n'exerçait que le modèle « Saisie
+> directe » : le moteur de calcul n'avait rien calculé. Ses quatre constats restent exacts et
+> ouverts ; sa description de la chaîne de valeur, non.
 
 ```
 [ETAT]
