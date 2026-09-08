@@ -672,6 +672,15 @@ h2 {
   text-transform: none;
 }
 
+/* La ligne de résultat porte la conclusion du tableau : elle se lit avant les
+   deux totaux qui la composent. */
+.result-row th,
+.result-row td {
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .console-button {
   background: var(--deep);
   border: 1px solid var(--deep);
