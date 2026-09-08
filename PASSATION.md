@@ -4,6 +4,89 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-08 — Simulation de bout en bout : le produit marche, et il affiche un chiffre FAUX
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master`, worktree PROPRE. **Aucun code applicatif changé** : cette
+              session n'a rien corrigé, elle a exercé et mesuré.
+  Prod      : inchangée — `tarjih-web` sur `ce63e7f`, `tarjih-calculation` sur `6b398e0`.
+  Tenant réel: « Afrique Stratégie » porte maintenant **DEUX versions publiées** du cycle
+              « Budget 2027 — Afrique Stratégie » : v1 `0f300945…` (2026-09-07) et
+              **v2 `a25544b3-4be7-40e5-8e6c-e8de0b08ee58`** (2026-09-08), 16 montants chacune.
+  Preuves   : **12/12 versions publiées rejouent leur empreinte** (rejoué ce jour, code 0) ·
+              0 montant sans origine · deux demandes du même export → une seule empreinte ·
+              **l'export de la v1, redemandé APRÈS la révision, rend l'empreinte de la veille
+              (`a6ca0057…`)** — l'immuabilité n'est pas une promesse d'écran, elle est dans le
+              fichier.
+  Livrable  : artifact « Tarjih, écran par écran » —
+              https://claude.ai/code/artifact/75cc0f74-50aa-4352-85e2-8333ac5c1aac
+              (parcours capturé écran par écran, chronos, comparatif v1/v2, constats).
+
+[FAIT]
+  Simulation d'une RÉVISION budgétaire (le cas réel : un budget publié qui ne tient plus), jouée
+  entièrement PAR L'INTERFACE avec le compte DG réel, 13 captures d'écran. Chronos mesurés :
+  ouverture de la version **2,8 s** · 16 propositions **70 s** · 16 décisions **69 s** ·
+  **calcul + publication + empreintes : 2,4 s**. Les deux temps de saisie sont des PLANCHERS
+  machine — un humain qui réfléchit et relit met bien davantage.
+
+[ALERTE]
+  **QUATRE DÉFAUTS PRODUIT, tous mesurés, aucun corrigé — le premier est grave.**
+
+  1. **LE « TOTAL CONSOLIDÉ » AFFICHÉ EST FAUX AU SENS COMPTABLE.**
+     `consolidation/[versionId]/page.tsx:342` — `publishedValues.reduce((sum, v) => sum +
+     Number(v.amount), 0)` additionne TOUT sans regarder `financial_accounts.normal_balance`,
+     que la base connaît pourtant (712 = `credit`, 617/6131/6136 = `debit`).
+     Mesuré : l'écran affiche **8 135 000 MAD** là où le résultat est **1 365 000 MAD**.
+     Le pire est la VARIATION : entre v1 et v2 le total affiché recule de **8,7 %** quand le
+     résultat réel recule de **27,8 %** — un DAF sous-estime la dégradation d'un facteur 3.
+     Un chiffre faux, en gras, en pied de tableau, dans un produit financier.
+  2. **OUVRIR LA VERSION SUIVANTE NE REPREND RIEN.** `createBudgetVersion` (`budgets/actions.ts:43`)
+     insère une version VIDE. Or une version publiée est immuable : corriger passe forcément par
+     la suivante. Mesuré sur cette révision : **6 lignes à changer, 10 ressaisies à l'identique**.
+     À 150-300 lignes de plan analytique, la révision devient plusieurs jours de ressaisie pour
+     ajuster deux postes — le point où l'utilisateur rouvre son tableur.
+  3. **LES PÉRIODES SORTENT DANS LE DÉSORDRE** (T3, T2, T4, T1 à l'écran) : la requête de
+     `budget_values` de l'écran de consolidation n'a **aucun `order by`**. Déroutant sur quatre
+     trimestres, illisible sur douze mois.
+  4. **AUCUN ÉCRAN NE COMPARE DEUX VERSIONS.** La liste des routes du build le confirme. « Qu'est-ce
+     qui a changé depuis la version publiée ? » est la première question d'un CFO qui révise ;
+     le comparatif de l'artifact a dû être reconstruit EN BASE, donc hors du produit.
+
+  Rappel des deux constats de gouvernance de la veille, toujours ouverts : pas de séparation des
+  devoirs (`decide_hypothesis` ne vérifie que la permission `approve`) ; l'export ne porte pas les
+  parts d'hypothèses affichées à l'écran. Et les trois comptes de recette membres du tenant réel,
+  dont un DAF.
+
+  **Ce qui marche et qu'il ne faut pas casser en corrigeant** : l'écran d'arbitrage laisse le
+  décideur RETENIR UN AUTRE MONTANT que celui proposé, motif obligatoire, décision définitive et
+  nominative. C'est là que le produit se distingue d'un tableur partagé.
+
+[NEXT]
+  1. **Corriger le total consolidé** (ALERTE 1) — le seul défaut qui fait afficher un chiffre faux.
+     Le sens est en base, il suffit de s'en servir ; prévoir aussi des sous-totaux produits /
+     charges plutôt qu'une somme unique.
+  2. **Reprise de la version précédente à l'ouverture d'une version** (ALERTE 2) — sans quoi
+     l'invariant d'immuabilité, qui est une force, se paie en abandon d'usage.
+  3. Trier les périodes (ALERTE 3) : un `order by` — coût nul.
+  4. Retirer les trois comptes de recette du tenant réel.
+  5. Task 10 (déploiement preview), dernière tâche du découpage.
+
+[MEMO]
+  1. **Un parcours piloté par script ne montre RIEN à Amine s'il ne capture pas les écrans.** Le
+     jalon de la veille a été prouvé en base et déclaré atteint sans qu'il ait vu une seule page.
+     Capturer coûte trois lignes et change la nature du livrable.
+  2. **Le défaut le plus grave ne s'est vu qu'à l'écran, pas en base.** Les 16 montants étaient
+     exacts, les empreintes bonnes, la RLS correcte — et le pied de tableau affichait un total
+     sans signification. Aucun test, aucune requête ne l'aurait signalé : il fallait REGARDER.
+  3. **`selectOption({ label: /regex/ })` n'existe pas** (Playwright n'accepte qu'une chaîne
+     exacte) ; lire les `options` par `evaluate` et sélectionner par `value`.
+  4. **Le broker `invoke-secret.ps1` met sa sortie en tampon jusqu'à la fin** : suivre un parcours
+     long en base, jamais dans le fichier de sortie.
+```
+
+---
+
 ## 2026-09-07 (jalon produit) — Tarjih a produit un budget publié pour un TENANT RÉEL
 
 ```
