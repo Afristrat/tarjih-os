@@ -49,7 +49,16 @@
 
 [ALERTE]
   **Défauts mesurés, NON corrigés — le premier fait afficher un chiffre faux :**
-  1. **LE « TOTAL CONSOLIDÉ » IGNORE LE SENS COMPTABLE.**
+  1. ✅ **CORRIGÉ ET DÉPLOYÉ (`fa38a46`, 2026-09-08).** Le pied de tableau porte désormais
+     **Total des produits / Total des charges / Résultat**, la somme est EXACTE (`lib/budgets/
+     amounts.ts`, arithmétique `bigint` en micro-unités — un `numeric(24,6)` sommé en `Number`
+     perd la précision au-delà de ~9·10¹⁵ et rate 0,1 + 0,2), et les lignes sont triées
+     dimension → compte → période. Vérifié sur le DÉPLOYÉ : 2027 v2 affiche produits 4 750 000,
+     charges 3 385 000, **résultat 1 365 000** (au lieu de 8 135 000) ; 2028 affiche
+     **2 530 500**. 6 contrôles unitaires ajoutés (74 tests Node). Le tri est prouvé par la
+     colonne des périodes : chaque compte sort ses quatre trimestres dans l'ordre.
+     ~~Ancien libellé de l'alerte, conservé pour mémoire :~~
+     **LE « TOTAL CONSOLIDÉ » IGNORE LE SENS COMPTABLE.**
      `consolidation/[versionId]/page.tsx` — `reduce((sum, v) => sum + Number(v.amount), 0)`
      additionne produits ET charges alors que `financial_accounts.normal_balance` est en base.
      Mesuré sur 2027 v2 : **8 135 000 MAD affichés** contre **1 365 000** de résultat. Pire, la
@@ -57,8 +66,8 @@
   2. **OUVRIR UNE VERSION NE REPREND RIEN de la précédente** (`createBudgetVersion` insère une
      version vide). Mesuré : 6 lignes à changer, **10 ressaisies à l'identique**. À 150-300 lignes,
      la révision devient inutilisable — or l'immuabilité impose de passer par la version suivante.
-  3. **PÉRIODES NON TRIÉES** à l'écran de consolidation (T3, T2, T4, T1) : aucun `order by` sur
-     la requête `budget_values`. Correctif à coût nul.
+  3. ✅ **CORRIGÉ avec le point 1** (`fa38a46`) : tri applicatif dimension → compte → période,
+     les dates ISO rendant l'ordre lexicographique chronologique.
   4. **AUCUN ÉCRAN NE COMPARE DEUX VERSIONS** — « qu'est-ce qui a changé ? » n'a pas de réponse
      dans le produit ; le comparatif de l'artifact a dû être reconstruit en base.
   5. Toujours ouverts : **pas de séparation des devoirs** (`decide_hypothesis` ne vérifie que la
@@ -89,11 +98,11 @@
   Rien. L'accès DG réel est au coffre (`TARJIH_DG_REEL_PW`).
 
 [NEXT]
-  1. **Corriger le total consolidé** (ALERTE 1) — seul défaut qui affiche un chiffre faux ;
-     prévoir des sous-totaux produits / charges plutôt qu'une somme unique.
-  2. **Reprise de la version précédente à l'ouverture** (ALERTE 2).
-  3. Trier les périodes (ALERTE 3) : un `order by`.
-  4. Éprouver `cost_center` et ses refus (ALERTE 6) ; recette e2e du modèle `driver`, qui n'a
+  1. **Reprise de la version précédente à l'ouverture** (ALERTE 2) — le défaut d'usage le plus
+     lourd qui reste : l'immuabilité, qui est une force, se paie aujourd'hui en ressaisie.
+  2. Corriger l'auto-comparaison des policies de `hypothesis_decisions` (ALERTE 7) et poser le
+     contrôle pgTAP qui l'aurait attrapée.
+  3. Éprouver `cost_center` et ses refus (ALERTE 6) ; recette e2e du modèle `driver`, qui n'a
      aucun parcours Playwright à ce jour.
   5. Retirer les trois comptes de recette du tenant réel.
   6. Task 10 (déploiement preview), dernière tâche du découpage.
