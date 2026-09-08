@@ -637,6 +637,41 @@ h2 {
   outline-offset: 1px;
 }
 
+/* Ouverture d'une version : le modèle de calcul se choisit avec le bouton, pas
+   après coup — il décide de ce que le moteur saura faire des hypothèses. */
+.version-opener {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.version-opener select {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 8px 10px;
+}
+
+.version-opener select:focus-visible {
+  border-color: var(--deep);
+  outline: 2px solid var(--deep);
+  outline-offset: 1px;
+}
+
+/* Une précision de saisie, dans le formulaire, à la casse du texte courant. */
+.console-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.5;
+  margin: 0;
+  text-transform: none;
+}
+
 .console-button {
   background: var(--deep);
   border: 1px solid var(--deep);

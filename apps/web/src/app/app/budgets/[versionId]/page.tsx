@@ -7,6 +7,8 @@ import { requireActiveTenant } from "@/lib/auth/session";
 import { isCalculable, readHypothesisFacts } from "@/lib/budgets/hypothesis-value";
 import { noticeFrom } from "@/lib/budgets/notices";
 import {
+  DRIVERS,
+  driverLabel,
   dimensionsFor,
   formatHypothesisValue,
   hypothesisStatusLabel,
@@ -227,26 +229,55 @@ export default async function BudgetVersionPage({
                 </label>
                 {driven ? (
                   <>
+                    {/* Le moteur connaît deux inducteurs et les résout en deux
+                        passes : les autonomes d'abord, les taux ensuite. Les
+                        deux jeux de champs sont affichés côte à côte plutôt que
+                        révélés par un script — l'écran reste utilisable sans
+                        JavaScript, et seul le jeu correspondant à l'inducteur
+                        choisi est lu. */}
+                    <label data-span="full">
+                      Inducteur
+                      <select name="driver" defaultValue="volume_price">
+                        {DRIVERS.map((driver) => (
+                          <option key={driver} value={driver}>
+                            {driverLabel(driver)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <label>
                       Volume
-                      <input
-                        name="volume"
-                        required
-                        maxLength={64}
-                        inputMode="decimal"
-                        placeholder="100"
-                      />
+                      <input name="volume" maxLength={64} inputMode="decimal" placeholder="100" />
                     </label>
                     <label>
                       Prix unitaire
                       <input
                         name="unit_price"
-                        required
                         maxLength={64}
                         inputMode="decimal"
                         placeholder="12.5"
                       />
                     </label>
+                    <label>
+                      Taux
+                      <input name="rate" maxLength={64} inputMode="decimal" placeholder="0.35" />
+                    </label>
+                    <label>
+                      Compte de base
+                      <select name="base_account_code" defaultValue="">
+                        <option value="">— aucun —</option>
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.code}>
+                            {account.code} · {account.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="console-hint" data-span="full">
+                      Un taux s’écrit <strong>0.35</strong> pour 35 %. Son compte de base doit être
+                      alimenté par une autre hypothèse de la même dimension et de la même période,
+                      sinon la publication échoue : un taux ne s’applique pas à du vide.
+                    </p>
                   </>
                 ) : (
                   <label>

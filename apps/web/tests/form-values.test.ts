@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildDirectValue,
+  buildPercentOfValue,
   buildVolumePriceValue,
   isCalculable,
   readHypothesisFacts,
@@ -69,4 +70,32 @@ test("une hypothèse portant plusieurs périodes le dit au lieu de n'en montrer 
 
   assert.equal(readHypothesisFacts(deuxPeriodes).periodCount, 2);
   assert.equal(readHypothesisFacts(buildDirectValue("61", PERIOD, "10")).periodCount, 1);
+});
+
+test("un taux se construit avec sa base, et refuse ce que le moteur refuserait", () => {
+  assert.deepEqual(buildPercentOfValue("6136", "712", PERIOD, "0.05"), {
+    account_code: "6136",
+    base_account_code: "712",
+    driver: "percent_of",
+    period_ids: [PERIOD],
+    rate: "0.05",
+  });
+
+  // Les bornes du moteur (`resolvers.RATE_MIN`/`RATE_MAX`), vérifiées ici pour
+  // que le refus tombe à la saisie et non à la publication — où il ferait
+  // échouer le calcul de toute la version, hypothèses des autres comprises.
+  assert.equal(buildPercentOfValue("6136", "712", PERIOD, "35"), null, "35 n'est pas 35 %");
+  assert.equal(buildPercentOfValue("6136", "712", PERIOD, "-10.5"), null);
+  assert.deepEqual(buildPercentOfValue("6136", "712", PERIOD, "10"), {
+    account_code: "6136",
+    base_account_code: "712",
+    driver: "percent_of",
+    period_ids: [PERIOD],
+    rate: "10",
+  });
+
+  // Un compte qui serait sa propre base ne se résoudrait jamais.
+  assert.equal(buildPercentOfValue("712", "712", PERIOD, "0.05"), null);
+  assert.equal(buildPercentOfValue("6136", "", PERIOD, "0.05"), null);
+  assert.equal(buildPercentOfValue("6136", "712", PERIOD, "cinq pour cent"), null);
 });

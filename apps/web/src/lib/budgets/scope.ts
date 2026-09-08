@@ -23,6 +23,40 @@ export type DimensionRow = {
 
 export const HYPOTHESIS_STATUSES = ["proposed", "approved", "rejected"] as const;
 
+/**
+ * Les modèles de calcul que le moteur sait résoudre (`resolvers.resolve`).
+ *
+ * `direct` additionne des montants saisis ; `driver` les DÉDUIT d'inducteurs
+ * (volume × prix, puis taux appliqué à une base) ; `cost_center` est une saisie
+ * directe restreinte aux départements et aux comptes de charge.
+ *
+ * Déclaré en `readonly string[]` et non en littéral figé : la valeur comparée
+ * vient d'un formulaire, donc du monde extérieur.
+ */
+export const CALCULATION_MODELS: readonly string[] = ["direct", "driver", "cost_center"];
+
+/** Les inducteurs du modèle « driver » (`resolvers.DRIVERS`). */
+export const DRIVERS: readonly string[] = ["volume_price", "percent_of"];
+
+const MODEL_LABELS: Record<string, string> = {
+  cost_center: "Centres de coûts",
+  direct: "Saisie directe",
+  driver: "Inducteurs",
+};
+
+const DRIVER_LABELS: Record<string, string> = {
+  percent_of: "Taux appliqué à un autre compte",
+  volume_price: "Volume × prix unitaire",
+};
+
+export function calculationModelLabel(model: string): string {
+  return MODEL_LABELS[model] ?? model;
+}
+
+export function driverLabel(driver: string): string {
+  return DRIVER_LABELS[driver] ?? driver;
+}
+
 export const VERSION_STATUSES = [
   "draft",
   "calculating",

@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 
 import { requireActiveTenant } from "@/lib/auth/session";
 import { canManageFinance } from "@/lib/authorization/capabilities";
-import { decisionNoticeFor } from "@/lib/budgets/scope";
+import { CALCULATION_MODELS, decisionNoticeFor } from "@/lib/budgets/scope";
 import {
   buildDirectValue,
+  buildPercentOfValue,
   buildVolumePriceValue,
   readHypothesisFacts,
 } from "@/lib/budgets/hypothesis-value";
@@ -51,6 +52,16 @@ export async function createBudgetVersion(formData: FormData): Promise<never> {
     redirect("/app/budgets?error=invalid-cycle");
   }
 
+  // Le modèle décide de ce que le moteur SAIT faire de cette version, et il ne
+  // se change plus une fois des hypothèses déposées : il se choisit donc ici,
+  // à l'ouverture. Tant qu'aucun écran ne le renseignait, la colonne restait à
+  // son défaut `direct` et les deux autres modèles — inducteurs et centres de
+  // coûts — étaient codés, testés, et inatteignables depuis le produit.
+  const requestedModel = requiredText(formData, "calculation_model", 32) ?? "direct";
+  if (!CALCULATION_MODELS.includes(requestedModel)) {
+    redirect("/app/budgets?error=invalid-model");
+  }
+
   const supabase = await createClient();
 
   // Le numéro se déduit de la dernière version du cycle. Deux créations
@@ -73,6 +84,7 @@ export async function createBudgetVersion(formData: FormData): Promise<never> {
   const { data, error } = await supabase
     .from("budget_versions")
     .insert({
+      calculation_model: requestedModel,
       cycle_id: cycleId,
       status: "draft",
       tenant_id: context.tenantId,
@@ -119,15 +131,27 @@ export async function proposeHypothesis(formData: FormData): Promise<never> {
       ? versionRow.calculation_model
       : null;
 
+  // En modèle « driver », l'hypothèse dit AUSSI par quel inducteur elle se
+  // calcule. Les deux que le moteur connaît ne se saisissent pas pareil : un
+  // volume et un prix pour l'un, un taux et un compte de base pour l'autre.
+  const driver = requiredText(formData, "driver", 32) ?? "volume_price";
+
   const value =
     accountCode && periodId && model
       ? model === "driver"
-        ? buildVolumePriceValue(
-            accountCode,
-            periodId,
-            requiredText(formData, "volume", 64) ?? "",
-            requiredText(formData, "unit_price", 64) ?? "",
-          )
+        ? driver === "percent_of"
+          ? buildPercentOfValue(
+              accountCode,
+              requiredText(formData, "base_account_code", 64) ?? "",
+              periodId,
+              requiredText(formData, "rate", 64) ?? "",
+            )
+          : buildVolumePriceValue(
+              accountCode,
+              periodId,
+              requiredText(formData, "volume", 64) ?? "",
+              requiredText(formData, "unit_price", 64) ?? "",
+            )
         : buildDirectValue(accountCode, periodId, requiredText(formData, "value", 64) ?? "")
       : null;
 
