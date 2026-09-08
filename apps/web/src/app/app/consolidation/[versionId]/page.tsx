@@ -6,7 +6,11 @@ import { publishCalculation } from "@/app/app/consolidation/[versionId]/actions"
 import { requireActiveTenant } from "@/lib/auth/session";
 import { canManageFinance } from "@/lib/authorization/capabilities";
 import { noticeFrom } from "@/lib/budgets/notices";
-import { versionStatusLabel, versionStatusTone } from "@/lib/budgets/scope";
+import {
+  calculationModelLabel,
+  versionStatusLabel,
+  versionStatusTone,
+} from "@/lib/budgets/scope";
 import { createClient } from "@/lib/supabase/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -43,12 +47,6 @@ type RunRow = {
   id: string;
   input_hash: string;
   output_hash: string | null;
-};
-
-const MODEL_LABELS: Record<string, string> = {
-  cost_center: "Centres de coûts",
-  direct: "Saisie directe",
-  driver: "Inducteurs",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -397,7 +395,7 @@ export default async function ConsolidationPage({
 
         <dl className="fact-list">
           <dt>Modèle de calcul</dt>
-          <dd>{MODEL_LABELS[version.calculation_model] ?? version.calculation_model}</dd>
+          <dd>{calculationModelLabel(version.calculation_model)}</dd>
           <dt>Publiée le</dt>
           <dd>{version.published_at ?? "—"}</dd>
           <dt>Moteur</dt>

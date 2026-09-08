@@ -103,6 +103,54 @@ export function buildDirectValue(
 }
 
 /** Inducteur : le montant est dérivé d'un volume et d'un prix unitaire. */
+/**
+ * Bornes du taux, reprises de `resolvers.RATE_MIN`/`RATE_MAX`.
+ *
+ * Elles sont vérifiées ICI en plus du moteur, et ce n'est pas une duplication
+ * décorative : une hypothèse hors bornes s'écrit sans bruit, passe l'approbation,
+ * et ne casse qu'à la publication — en faisant échouer le calcul de TOUTE la
+ * version, y compris les hypothèses des autres. Le refus doit tomber à la
+ * saisie, devant la personne qui peut corriger.
+ */
+const RATE_MIN = -10;
+const RATE_MAX = 10;
+
+/**
+ * Un taux appliqué à une base déjà résolue sur la même dimension.
+ *
+ * Le moteur résout ces hypothèses en SECONDE passe, après les inducteurs
+ * autonomes, et refuse un pourcentage de pourcentage : sans cela l'ordre de
+ * lecture déciderait du résultat. Le compte de base doit donc être alimenté par
+ * une autre hypothèse de la même dimension et de la même période, sans quoi la
+ * publication échoue sur `base_missing`.
+ */
+export function buildPercentOfValue(
+  accountCode: string,
+  baseAccountCode: string,
+  periodId: string,
+  rawRate: string,
+): HypothesisValue | null {
+  const rate = factor(rawRate);
+  if (rate === null || baseAccountCode === "" || baseAccountCode === accountCode) {
+    // Un compte qui serait sa propre base se référencerait lui-même : le moteur
+    // ne le résoudrait jamais, autant le refuser tout de suite.
+    return null;
+  }
+
+  const numeric = Number(rate);
+  if (!Number.isFinite(numeric) || numeric < RATE_MIN || numeric > RATE_MAX) {
+    return null;
+  }
+
+  return {
+    account_code: accountCode,
+    base_account_code: baseAccountCode,
+    driver: "percent_of",
+    period_ids: [periodId],
+    rate,
+  };
+}
+
 export function buildVolumePriceValue(
   accountCode: string,
   periodId: string,

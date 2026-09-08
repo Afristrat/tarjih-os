@@ -5,7 +5,12 @@ import { createBudgetCycle, createBudgetVersion } from "@/app/app/budgets/action
 import { requireActiveTenant } from "@/lib/auth/session";
 import { canManageFinance } from "@/lib/authorization/capabilities";
 import { noticeFrom } from "@/lib/budgets/notices";
-import { versionStatusLabel, versionStatusTone } from "@/lib/budgets/scope";
+import {
+  CALCULATION_MODELS,
+  calculationModelLabel,
+  versionStatusLabel,
+  versionStatusTone,
+} from "@/lib/budgets/scope";
 import { createClient } from "@/lib/supabase/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -138,8 +143,26 @@ export default async function BudgetsPage({
                       </span>
                     </div>
                     {manages ? (
-                      <form action={createBudgetVersion}>
+                      <form action={createBudgetVersion} className="version-opener">
                         <input type="hidden" name="cycle_id" value={cycle.id} />
+                        {/* Le modèle se choisit ICI et nulle part ailleurs : il
+                            décide de ce que le moteur saura faire des
+                            hypothèses, et il ne se change plus une fois qu'elles
+                            sont déposées. */}
+                        <label className="visually-hidden" htmlFor={`model-${cycle.id}`}>
+                          Modèle de calcul
+                        </label>
+                        <select
+                          id={`model-${cycle.id}`}
+                          name="calculation_model"
+                          defaultValue="direct"
+                        >
+                          {CALCULATION_MODELS.map((model) => (
+                            <option key={model} value={model}>
+                              {calculationModelLabel(model)}
+                            </option>
+                          ))}
+                        </select>
                         <button className="console-button" data-variant="discret" type="submit">
                           Ouvrir une version
                         </button>
