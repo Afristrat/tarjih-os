@@ -65,6 +65,22 @@
      permission `approve`) · l'export ne porte pas les origines · **trois comptes de recette
      membres du tenant réel, dont un DAF** (`recette-daf-05`, `recette-contrib-05`,
      `admin.technique`) — mots de passe absents du coffre, donc risque borné, pas supprimé.
+  7. **AUTO-COMPARAISON DANS LES DEUX POLICIES DE `hypothesis_decisions`** : elles portent
+     `hypothesis.tenant_id = hypothesis.tenant_id` — toujours vrai — là où l'intention était
+     manifestement `hypothesis_decisions.tenant_id`. Pas de fuite inter-tenant (la permission est
+     évaluée sur le tenant de l'HYPOTHÈSE, qui est le bon), mais la règle ne vérifie pas la
+     cohérence qu'elle prétend vérifier : une décision rattachée à un tenant étranger passerait.
+     À corriger avec un contrôle pgTAP qui l'aurait attrapé.
+  8. **AUCUN CHAMP D'ANNOTATION POUR LE CONTRIBUTEUR** : `hypotheses` ne porte ni note ni
+     justification. Le seul texte libre du système est `hypothesis_decisions.reason`, réservé au
+     DÉCIDEUR. Celui qui construit ne peut pas dire POURQUOI il propose 320 jours facturés.
+  9. **AUCUNE NOTION DE SCÉNARIO** : 16 tables, aucune ne le porte. Une version tient lieu de
+     scénario mais elle est SÉQUENTIELLE (v1 → v2), jamais parallèle : « base / pessimiste /
+     optimiste » côte à côte est impossible, et comme ouvrir une version ne reprend rien
+     (ALERTE 2), trois scénarios coûtent trois saisies intégrales.
+ 10. **LE RBAC EST PAR DIMENSION, jamais par hypothèse ni par scénario** : un scénario
+     confidentiel (plan de réduction d'effectifs, par exemple) ne peut pas être réservé au DG
+     sans lui dédier une dimension entière. À trancher avant tout client réel.
   6. `cost_center` est désormais SÉLECTIONNABLE mais **jamais exercé** : il restreint aux
      dimensions `department` et aux comptes de charge, et ces refus n'ont pas été éprouvés en
      production.
