@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(24);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -184,6 +184,37 @@ select throws_ok(
   '55000',
   'A published version is immutable',
   'une version publiée ne change plus d’état'
+);
+
+-- ---------------------------------------------------------------------------
+-- Le tenant d'une décision est celui de son hypothèse — et DEUX mécanismes
+-- indépendants l'imposent. Jusqu'au 2026-09-10 un seul le faisait vraiment : la
+-- clé étrangère composite. Les politiques, elles, portaient
+-- `hypothesis.tenant_id = tenant_id`, que PostgreSQL résolvait sur la portée
+-- interne — une tautologie. Mesuré alors en production : la tentative ci-dessous
+-- était refusée avec `23503`, pas `42501`. Ces trois contrôles refusent que
+-- l'un des deux mécanismes disparaisse sans que l'autre soit interrogé.
+-- ---------------------------------------------------------------------------
+select throws_ok(
+  $$insert into public.hypothesis_decisions (tenant_id, hypothesis_id, decision, decided_by, reason) values ('b5bbbbbb-0000-0000-0000-000000000001', 'a5aaaaaa-4000-0000-0000-000000000010', 'approved', '50000000-0000-0000-0000-000000000002', 'Décision estampillée d’un tenant étranger.')$$,
+  '42501',
+  'new row violates row-level security policy for table "hypothesis_decisions"',
+  'la politique refuse ELLE-MÊME une décision estampillée d’un autre tenant, sans attendre la clé étrangère'
+);
+
+select lives_ok(
+  $$insert into public.hypothesis_decisions (tenant_id, hypothesis_id, decision, decided_by, reason) values ('a5aaaaaa-0000-0000-0000-000000000001', 'a5aaaaaa-4000-0000-0000-000000000010', 'approved', '50000000-0000-0000-0000-000000000002', 'Décision cohérente, écrite en direct.')$$,
+  'la même écriture, au bon tenant, passe toujours : la politique s’est resserrée, elle ne s’est pas fermée'
+);
+
+select is(
+  (select count(*)::int from pg_constraint
+   where conrelid = 'public.hypothesis_decisions'::regclass
+     and contype = 'f'
+     and confrelid = 'public.hypotheses'::regclass
+     and array_length(conkey, 1) = 2),
+  1,
+  'la clé étrangère composite tient toujours le même invariant : la politique l’énonce, elle le garantit'
 );
 
 -- ---------------------------------------------------------------------------
