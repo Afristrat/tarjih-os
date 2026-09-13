@@ -4,6 +4,116 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-12/13 — Rien d'entamé ne reste ouvert : ALERTE 7 fermée, `cost_center` joué dans un navigateur, coffre soldé
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`ae6bda7`**, worktree PROPRE (vérifié).
+  Prod      : `tarjih-web` sur **`fa38a46`** (conteneur `l3fov9fbnjvrgt5ly75b7g5r-…`, `healthy`,
+              démarré le 2026-09-08) · `tarjih-calculation` sur `6b398e0`. Rien à redéployer :
+              les commits de la session sont SQL (déjà appliqué), tests et recette.
+  Gates     : typecheck 0 · lint 0 · **76 tests Node** (74 + 2) · **120 pgTAP** sur 9 fichiers,
+              joués contre la PRODUCTION en begin/rollback, 0 échec · **26 tests Playwright**
+              verts contre `https://tarjih-os.com` (4 recettes, 4,1 min).
+  Registre  : 9 migrations, la dernière `20260910120000 check_the_decision_tenant`.
+  Tasks     : 01→09 ✅ · 10 ⬜.
+
+[FAIT]
+  1. **La passation du 08/09 ne disait pas tout : deux chantiers avaient été entamés APRÈS elle**
+     (10/09 et 11/09), jamais commités, jamais consignés. Les deux sont fermés.
+  2. **ALERTE 7 fermée (`75b55f4`)** — les deux policies de `hypothesis_decisions` qualifient
+     enfin les deux côtés du rapprochement. La migration était DÉJÀ en production (posée le
+     10/09) mais **sans son inscription au registre** : la ligne `schema_migrations` avait été
+     écrite à la main. Le fichier s'inscrit désormais lui-même, le rollback se désinscrit, et un
+     test Node (`tests/migrations-registry.test.ts`) lit le dossier `supabase/migrations` pour
+     exiger que chaque migration depuis `20260809090100` porte son insert et chaque rollback son
+     delete — la convention ne repose plus sur la discipline du rédacteur (SOP-017). Rouge prouvé
+     sur le fichier tel qu'il était, vert après. 3 contrôles pgTAP ajoutés au `05` (24).
+  3. **NEXT 3 fermé (`ae6bda7`)** — `e2e/modeles-de-calcul.spec.ts`, 9 étapes en série :
+     `driver` publie **1 440 000** (320 × 4 500) et **72 000** (5 % d'une base que le moteur
+     venait de calculer) sans qu'aucun montant soit saisi ; un taux hors bornes est refusé à la
+     saisie ; **`cost_center` a tourné dans un navigateur pour la PREMIÈRE fois** : refus du
+     compte de produit à la publication, version restée brouillon, rien de publié, puis
+     publication d'une charge à 2 500,00.
+  4. **Renormalisation LF (`288a263`)** : le `.gitattributes` de `87b0674` n'avait jamais été
+     suivi d'un `git add --renormalize` — 34 fichiers restaient en CRLF dans l'index et toute
+     édition produisait un diff de la taille du fichier. Commit dédié, `--ignore-cr-at-eol` vide.
+  5. **Coffre soldé** : `TARJIH_E2E_PW_DAF` rotée (48 car. générés localement, empreinte
+     `crypt/bf` posée dans une transaction auto-vérifiée, coffre via `add-secret -Value`
+     in-process, connexion navigateur prouvée par la recette). `recette-contrib-05` et
+     `recette-daf-05` **bannis** (`banned_until = infinity`) : plus membres d'aucun tenant depuis
+     le 28/08 mais auteurs d'une hypothèse et d'une décision dans la version brouillon
+     `aa2977d8…` du tenant réel — une décision ne s'efface pas, donc les comptes restent en
+     base, fermés.
+
+[ALERTE]
+  1. **L'échec de connexion du 11/09 n'a PAS de cause établie.** Faits : URL `/login` NUE
+     (chaque chemin d'échec de `login/actions.ts` ajoute `?error=`), alerte vide, **aucune
+     requête `/token` reçue par GoTrue** ce jour-là hors la connexion scriptée de 20h44. Le seul
+     état compatible : le POST n'est jamais parti ou jamais revenu (réseau/tunnel). Hypothèse
+     « clic avant hydratation » RÉFUTÉE : le HTML servi porte `action=""` + `$ACTION_ID`, le POST
+     natif s'exécute quand même. Non reproduit en trois passages. `connecter` dit désormais à
+     l'échec si le POST a reçu une réponse et laquelle. **J'ai supprimé `test-results/` avant
+     d'ouvrir le `trace.zip` du 11/09** (trace `retain-on-failure` active) : preuve perdue par ma
+     faute. À la prochaine occurrence : ouvrir la trace AVANT tout nettoyage.
+  2. **Playwright écrit les valeurs des champs dans `error-context.md`** à l'échec d'un matcher
+     de page — sur l'écran de connexion, le mot de passe en clair. Deux clés brûlées ainsi
+     (28/08, 11-12/09). Fermé à deux niveaux : `connecter` n'utilise plus `expect(page)` mais
+     `waitForURL` (aucun instantané attaché), et `PLAYWRIGHT_NO_COPY_PROMPT` dans
+     `playwright.config.ts` coupe l'instantané du worker (seul interrupteur en 1.62, aucune option
+     de config). Prouvé avec un mot de passe faux : le fichier ne porte plus aucune valeur.
+     **Le `trace.zip` conservé à l'échec contient toujours le mot de passe** (DOM + corps du
+     POST) : local, ignoré par git, à ne jamais lire en texte.
+  3. **Exposition PARTIELLE de la NOUVELLE valeur de `TARJIH_E2E_PW_DAF`** : un contrôle SQL mal
+     quoté (deux quotes simples dans une chaîne bash à quotes simples) a fait renvoyer par `psql`
+     les **15 premiers caractères sur 48** dans le transcript ; le broker ne redacte pas une
+     valeur tronquée (risque résiduel documenté). 33 caractères aléatoires restent :
+     inexploitable. Consigné au registre, **décision de re-rotation laissée à Amine**.
+  4. **`admin.technique` est le SEUL `is_tenant_admin` du tenant réel** (le compte DG d'Amine
+     ne l'est pas). NEXT 5 disait de le retirer : le faire laisserait le tenant sans
+     administrateur. Non touché — à trancher par Amine (le rendre admin du DG, ou garder ce
+     compte technique dont le mot de passe est au coffre).
+  5. Toujours ouverts (inchangés) : ALERTE 2 (ouvrir une version ne reprend rien), 4 (aucun
+     comparatif de versions), 5 (pas de séparation des devoirs, export sans origines), 8 (pas
+     d'annotation contributeur), 9 (pas de scénario), 10 (RBAC par dimension).
+
+[NEXT]
+  1. **Reprise de la version précédente à l'ouverture** (ALERTE 2) — le défaut d'usage le plus
+     lourd, session dédiée.
+  2. Décisions d'Amine : re-rotation ou non de `TARJIH_E2E_PW_DAF` (ALERTE 3) ; sort de
+     `admin.technique` (ALERTE 4).
+  3. Task 10 (déploiement preview).
+
+[CTX]
+  Session `532a0472`, 2026-09-12/13, CWD `c:\projets\Budget & CFO`.
+  Commits : `75b55f4` (ALERTE 7 + registre) · `288a263` (LF) · `ae6bda7` (recette modèles).
+  **Le conteneur web ne s'appelle PAS `tarjih-*`** : `docker ps | grep tarjih` ne rend que le
+  moteur. Le web est `l3fov9fbnjvrgt5ly75b7g5r-<n>` (image `l3fov9fb…:<sha>`). La stack
+  Supabase de Tarjih est **`f10v8td71bwii32blb9lalfk`** (`supabase-db-…`, `supabase-auth-…`) ;
+  le serveur en héberge ONZE — `grep supabase-auth | head -1` tombe sur celle d'un autre projet.
+  Tenant réel « Afrique Stratégie » = `701819bb-954b-4c74-b6ac-cc777f1615de` (`4b4177c1…` est
+  l'id UTILISATEUR d'Amine). Tenants de recette : `e2e00000-…-0001` et `-0002` (tiers).
+  pgTAP : NEUF fichiers désormais (`02`→`10`), à rejouer tous après chaque migration.
+  Reste inchangé : entrée du 2026-09-06, section [CTX].
+
+[MEMO]
+  1. **Une passation n'est pas l'état du dépôt.** `git status` en premier, toujours : ici deux
+     chantiers de deux jours n'existaient nulle part ailleurs que dans le worktree.
+  2. **Une convention « qui ne dépend pas de la discipline » en dépend encore si personne ne la
+     vérifie.** Le commentaire de `20260809090100` promettait l'impossible ; un test de dix
+     lignes le tient.
+  3. **Lire la trace avant de nettoyer.** `rm -rf test-results` a effacé la seule preuve d'un
+     échec non reproduit.
+  4. **Une chaîne bash à quotes simples ne contient JAMAIS deux quotes simples consécutives** :
+     elles ferment et rouvrent la chaîne ; le SQL est parti sans ses guillemets et l'erreur a
+     réimprimé un bout de secret. Pour du SQL avec des littéraux : heredoc vers stdin, jamais
+     une ligne de commande.
+  5. **Bannir plutôt que supprimer** un compte qui a écrit dans un système à ajout seul : la
+     provenance vaut plus que la propreté de `auth.users`.
+```
+
+---
+
 ## 2026-09-08 (suite) — LE MOTEUR N'AVAIT JAMAIS TOURNÉ : trois modèles codés, un seul atteignable
 
 ```
