@@ -7,6 +7,7 @@ import {
   buildVolumePriceValue,
   isCalculable,
   readHypothesisFacts,
+  rebuildValue,
 } from "../src/lib/budgets/hypothesis-value.ts";
 import { normalizedCode } from "../src/lib/forms/values.ts";
 
@@ -98,4 +99,42 @@ test("un taux se construit avec sa base, et refuse ce que le moteur refuserait",
   assert.equal(buildPercentOfValue("712", "712", PERIOD, "0.05"), null);
   assert.equal(buildPercentOfValue("6136", "", PERIOD, "0.05"), null);
   assert.equal(buildPercentOfValue("6136", "712", PERIOD, "cinq pour cent"), null);
+});
+
+// Corriger ou décider un chiffre reconstruit la valeur autour des faits déjà
+// en base : compte, période, inducteur, base. Jusqu'au 2026-09-13, la
+// reconstruction ne connaissait que deux formes — un taux corrigé devenait une
+// saisie directe dans une version « inducteurs », que le moteur aurait refusée
+// à la publication, hypothèses des autres comprises.
+test("une correction garde la forme de l'hypothèse : un taux reste un taux, sur la même base", () => {
+  const champs = (valeurs: Record<string, string>) => (nom: string) => valeurs[nom] ?? null;
+
+  const taux = readHypothesisFacts(buildPercentOfValue("6136", "712", PERIOD, "0.05"));
+  assert.equal(taux.baseAccountCode, "712");
+  assert.deepEqual(rebuildValue(taux, champs({ rate: "0.06", value: "999" })), {
+    account_code: "6136",
+    base_account_code: "712",
+    driver: "percent_of",
+    period_ids: [PERIOD],
+    rate: "0.06",
+  });
+  assert.equal(rebuildValue(taux, champs({ rate: "35" })), null, "hors bornes : refusé ici aussi");
+
+  const inducteur = readHypothesisFacts(buildVolumePriceValue("712", PERIOD, "320", "4500"));
+  assert.equal(inducteur.baseAccountCode, null);
+  assert.deepEqual(
+    rebuildValue(inducteur, champs({ volume: "340", unit_price: "4500" })),
+    buildVolumePriceValue("712", PERIOD, "340", "4500"),
+  );
+
+  const direct = readHypothesisFacts(buildDirectValue("61", PERIOD, "10"));
+  assert.deepEqual(rebuildValue(direct, champs({ value: "12.50" })), buildDirectValue("61", PERIOD, "12.50"));
+  assert.deepEqual(
+    rebuildValue(direct, champs({ replacement_value: "12.50" }), "replacement_value"),
+    buildDirectValue("61", PERIOD, "12.50"),
+  );
+
+  // Sans compte ni période, rien ne se reconstruit : l'écran refuse plutôt que
+  // d'écrire une valeur que le moteur rejettera plus tard.
+  assert.equal(rebuildValue(readHypothesisFacts({ type: "decimal", value: "1" }), champs({ value: "2" })), null);
 });

@@ -167,9 +167,12 @@ export default async function HypothesisPage({
               <form action={updateHypothesis} className="console-form">
                 <input type="hidden" name="hypothesis_id" value={hypothesis.id} />
                 <input type="hidden" name="row_version" value={hypothesis.row_version} />
-                {/* Un inducteur se corrige sur ses termes — volume et prix —
-                    et non sur le produit : c'est le moteur qui multiplie, et
-                    proposer le résultat en saisie effacerait l'inducteur. */}
+                {/* Un inducteur se corrige sur ses termes — volume et prix,
+                    ou taux — et non sur le produit : c'est le moteur qui
+                    multiplie, et proposer le résultat en saisie effacerait
+                    l'inducteur. Jusqu'au 2026-09-13, un taux n'avait ici qu'un
+                    champ « Montant » : le corriger l'aurait changé en saisie
+                    directe, que le moteur aurait refusée à la publication. */}
                 {facts.driver === "volume_price" ? (
                   <>
                     <label>
@@ -181,6 +184,11 @@ export default async function HypothesisPage({
                       <input name="unit_price" required maxLength={64} inputMode="decimal" />
                     </label>
                   </>
+                ) : facts.driver === "percent_of" ? (
+                  <label>
+                    Taux (appliqué à {facts.baseAccountCode ?? "la base"})
+                    <input name="rate" required maxLength={64} inputMode="decimal" />
+                  </label>
                 ) : (
                   <label>
                     Montant
@@ -230,6 +238,17 @@ export default async function HypothesisPage({
                     {/* La RPC ne remplace la valeur que si ce champ est rempli :
                         il porte le déclencheur, les deux champs ci-dessus le
                         détail. */}
+                    <label data-span="full">
+                      Confirmer le remplacement (saisir n’importe quel chiffre)
+                      <input name="replacement_value" maxLength={64} inputMode="decimal" />
+                    </label>
+                  </>
+                ) : facts.driver === "percent_of" ? (
+                  <>
+                    <label>
+                      Taux retenu (vide = celui proposé)
+                      <input name="rate" maxLength={64} inputMode="decimal" />
+                    </label>
                     <label data-span="full">
                       Confirmer le remplacement (saisir n’importe quel chiffre)
                       <input name="replacement_value" maxLength={64} inputMode="decimal" />

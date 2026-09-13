@@ -36,6 +36,7 @@
           "facts": {
             "accountCode": "61",
             "amount": "1200.50",
+            "baseAccountCode": null,
             "driver": null,
             "periodId": "77777777-7777-4777-8777-777777777777",
             "periodCount": 1
@@ -78,6 +79,7 @@
           "facts": {
             "accountCode": "61",
             "amount": "300",
+            "baseAccountCode": null,
             "driver": null,
             "periodId": "88888888-8888-4888-8888-888888888888",
             "periodCount": 1
@@ -123,6 +125,7 @@
           "facts": {
             "accountCode": "70",
             "amount": "100 × 12.5",
+            "baseAccountCode": null,
             "driver": "volume_price",
             "periodId": "77777777-7777-4777-8777-777777777777",
             "periodCount": 1
@@ -168,6 +171,7 @@
           "facts": {
             "accountCode": "70",
             "amount": "1000000 × 0.12345678",
+            "baseAccountCode": null,
             "driver": "volume_price",
             "periodId": "77777777-7777-4777-8777-777777777777",
             "periodCount": 1
@@ -214,6 +218,7 @@
           "facts": {
             "accountCode": "70",
             "amount": "100 × 10",
+            "baseAccountCode": null,
             "driver": "volume_price",
             "periodId": "77777777-7777-4777-8777-777777777777",
             "periodCount": 1
@@ -235,6 +240,7 @@
           "facts": {
             "accountCode": "61",
             "amount": "0.35 × 70",
+            "baseAccountCode": "70",
             "driver": "percent_of",
             "periodId": "77777777-7777-4777-8777-777777777777",
             "periodCount": 1
@@ -281,6 +287,7 @@
           "facts": {
             "accountCode": "61",
             "amount": "1000.00",
+            "baseAccountCode": null,
             "driver": null,
             "periodCount": 2,
             "periodId": "77777777-7777-4777-8777-777777777777"

@@ -5,12 +5,13 @@ import { redirect } from "next/navigation";
 
 import { requireActiveTenant } from "@/lib/auth/session";
 import { canManageFinance } from "@/lib/authorization/capabilities";
-import { CALCULATION_MODELS, decisionNoticeFor } from "@/lib/budgets/scope";
+import { CALCULATION_MODELS, decisionNoticeFor, readVersionOrigin } from "@/lib/budgets/scope";
 import {
   buildDirectValue,
   buildPercentOfValue,
   buildVolumePriceValue,
   readHypothesisFacts,
+  rebuildValue,
 } from "@/lib/budgets/hypothesis-value";
 import { requiredText } from "@/lib/forms/values";
 import { createClient } from "@/lib/supabase/server";
@@ -52,53 +53,53 @@ export async function createBudgetVersion(formData: FormData): Promise<never> {
     redirect("/app/budgets?error=invalid-cycle");
   }
 
-  // Le modèle décide de ce que le moteur SAIT faire de cette version, et il ne
-  // se change plus une fois des hypothèses déposées : il se choisit donc ici,
-  // à l'ouverture. Tant qu'aucun écran ne le renseignait, la colonne restait à
-  // son défaut `direct` et les deux autres modèles — inducteurs et centres de
-  // coûts — étaient codés, testés, et inatteignables depuis le produit.
-  const requestedModel = requiredText(formData, "calculation_model", 32) ?? "direct";
-  if (!CALCULATION_MODELS.includes(requestedModel)) {
+  // Une seule décision à l'ouverture : partir de rien, sur un modèle choisi, ou
+  // reprendre une version du cycle — qui impose alors son modèle. Le modèle
+  // décide de ce que le moteur SAIT faire de cette version et ne se change plus
+  // une fois des hypothèses déposées ; tant qu'aucun écran ne le renseignait,
+  // deux des trois modèles étaient codés, testés, et inatteignables.
+  const origin = readVersionOrigin(requiredText(formData, "origin", 64));
+  if (!origin) {
     redirect("/app/budgets?error=invalid-model");
   }
 
   const supabase = await createClient();
 
-  // Le numéro se déduit de la dernière version du cycle. Deux créations
-  // simultanées sur le même cycle butent alors sur l'unicité `(cycle_id,
-  // version_no)` : la seconde échoue franchement au lieu de dupliquer un
-  // numéro, ce qui est le comportement voulu pour un identifiant financier.
-  const { data: latest, error: latestError } = await supabase
-    .from("budget_versions")
-    .select("version_no")
-    .eq("tenant_id", context.tenantId)
-    .eq("cycle_id", cycleId)
-    .order("version_no", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (latestError) {
-    redirect("/app/budgets?error=version-creation-failed");
+  // Le modèle d'une reprise est lu en base, pas soumis : la fonction refuse
+  // toute divergence, et l'écran n'a rien à savoir de plus que la source.
+  let model = origin.kind === "empty" ? origin.model : null;
+  if (origin.kind === "resume") {
+    const { data: source } = await supabase
+      .from("budget_versions")
+      .select("calculation_model")
+      .eq("id", origin.sourceVersionId)
+      .eq("tenant_id", context.tenantId)
+      .eq("cycle_id", cycleId)
+      .maybeSingle();
+    model = typeof source?.calculation_model === "string" ? source.calculation_model : null;
   }
 
-  const { data, error } = await supabase
-    .from("budget_versions")
-    .insert({
-      calculation_model: requestedModel,
-      cycle_id: cycleId,
-      status: "draft",
-      tenant_id: context.tenantId,
-      version_no: (latest?.version_no ?? 0) + 1,
-    })
-    .select("id")
-    .single();
+  if (!model || !CALCULATION_MODELS.includes(model)) {
+    redirect("/app/budgets?error=invalid-model");
+  }
 
-  if (error || !data) {
+  // Version et hypothèses reprises tiennent dans une transaction en base, qui
+  // porte aussi les contrôles de droit et de cycle : voir la migration
+  // `20260913150000_open_a_version_from_the_previous_one`.
+  const { data, error } = await supabase.rpc("open_budget_version", {
+    requested_model: model,
+    source_version_id: origin.kind === "resume" ? origin.sourceVersionId : null,
+    target_cycle_id: cycleId,
+  });
+
+  if (error || typeof data !== "string") {
     redirect("/app/budgets?error=version-creation-failed");
   }
 
   revalidatePath("/app/budgets");
-  redirect(`/app/budgets/${data.id}?success=version-created`);
+  redirect(
+    `/app/budgets/${data}?success=${origin.kind === "resume" ? "version-resumed" : "version-created"}`,
+  );
 }
 
 export async function proposeHypothesis(formData: FormData): Promise<never> {
@@ -183,13 +184,10 @@ export async function proposeHypothesis(formData: FormData): Promise<never> {
 }
 
 /**
- * Reconstruit la valeur d'une hypothèse autour de ses faits déjà en base.
- *
- * Corriger un chiffre ne doit ni changer le compte visé, ni la période, ni le
- * type d'inducteur : ces trois-là ont été proposés et, le cas échéant, soumis à
- * décision. Rend `null` si le chiffre saisi est illisible ou si l'hypothèse ne
- * porte pas les faits nécessaires — auquel cas l'écran refuse plutôt que
- * d'écrire une valeur que le moteur rejettera plus tard.
+ * Lit les faits d'une hypothèse en base et reconstruit sa valeur autour d'eux
+ * (`rebuildValue`) : compte, période, inducteur et base ne changent pas, seul
+ * le terme saisi change. `null` si l'hypothèse est introuvable, illisible ou
+ * si le chiffre saisi ne passe pas — l'écran refuse alors d'écrire.
  */
 async function rebuiltValue(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -203,24 +201,10 @@ async function rebuiltValue(
     .eq("id", hypothesisId)
     .maybeSingle();
 
-  const facts = readHypothesisFacts(data?.value);
-  if (facts.accountCode === null || facts.periodId === null) {
-    return null;
-  }
-
-  if (facts.driver === "volume_price") {
-    return buildVolumePriceValue(
-      facts.accountCode,
-      facts.periodId,
-      requiredText(formData, "volume", 64) ?? "",
-      requiredText(formData, "unit_price", 64) ?? "",
-    );
-  }
-
-  return buildDirectValue(
-    facts.accountCode,
-    facts.periodId,
-    requiredText(formData, amountField, 64) ?? "",
+  return rebuildValue(
+    readHypothesisFacts(data?.value),
+    (name) => requiredText(formData, name, 64),
+    amountField,
   );
 }
 
