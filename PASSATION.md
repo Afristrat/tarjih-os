@@ -4,6 +4,97 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-13 (suite) — ALERTE 2 fermée : une version suivante reprend la précédente ; le DG administre son tenant
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`70066ac`** (+ entrée documentaire), worktree PROPRE.
+  Prod      : `tarjih-web` sur **`70066ac`** (conteneur `l3fov9fbnjvrgt5ly75b7g5r-173744624417`,
+              `healthy`) · `tarjih-calculation` sur `6b398e0` (inchangé).
+  Gates     : typecheck 0 · lint 0 · **78 tests Node** · 43 Python · **140 pgTAP sur 10 fichiers**
+              contre la production en begin/rollback · **29 tests Playwright** verts contre
+              `https://tarjih-os.com` (4 recettes, 4,1 min).
+  Registre  : 10 migrations, la dernière `20260913150000 open_a_version_from_the_previous_one`
+              (rollback ÉPROUVÉ en transaction annulée avant application).
+  Tenant réel: « Afrique Stratégie » `701819bb…` — UN membre, `a.mansouri@…`, `dg`,
+              **`is_tenant_admin = true`** (décision d'Amine). `admin.technique` retiré et banni.
+  Tasks     : 01→09 ✅ · 10 ⬜.
+
+[FAIT]
+  1. **Décisions d'Amine appliquées** : pas de re-rotation de `TARJIH_E2E_PW_DAF` ; le DG réel est
+     administrateur de son tenant (« un DG peut et sera sûrement l'admin réel d'une
+     organisation »). Aucun invariant de schéma ne s'y opposait : `is_tenant_admin` est un
+     drapeau orthogonal au rôle (le `04` prouve que le pouvoir financier n'EMPORTE pas
+     l'administration, pas qu'il l'exclut). `admin.technique` — 0 hypothèse, 0 décision,
+     0 grant, 0 export — retiré du tenant puis banni. Prouvé dans un navigateur réel :
+     badge « DG · Administration », écran « Dimensions et droits » atteint.
+  2. **ALERTE 2 fermée (`70066ac`)** — `public.open_budget_version(cycle, modèle, source)`,
+     `security definer`, atomique : version suivante + copies des hypothèses non rejetées de la
+     source, **en `proposed` à la révision 1, au nom de leurs auteurs d'origine**, même modèle
+     obligatoire, `parent_version_id` écrit. La source n'est pas touchée d'un octet.
+     `createBudgetVersion` ne fait plus qu'appeler la fonction. L'écran n'a plus qu'UN sélecteur
+     (« Reprendre la version N — modèle · état » / « Version vide — modèle »), reprise de la
+     dernière version par défaut ; la liste dit « reprise de la version N ».
+     **`parent_version_id` n'avait JAMAIS été écrit** (0 sur 32 versions) — et
+     `budget_version_states.is_superseded` en dérivait depuis le 02/09 : troisième colonne
+     morte du même type. Elle vit désormais : une version reprise rend sa source « remplacée ».
+  3. **Défaut adjacent corrigé** : la fiche d'un taux (`percent_of`) n'offrait qu'un champ
+     « Montant », et `rebuiltValue` reconstruisait la correction en `direct` dans une version
+     `driver` — le moteur l'aurait refusée à la publication, hypothèses des autres comprises.
+     Reconstruction extraite en fonction pure `rebuildValue` (garde compte, période, inducteur
+     ET base), champ « Taux » sur la fiche (correction et décision), `baseAccountCode` ajouté
+     aux faits et au corpus partagé `schemas/hypothesis-value.cases.json` (test pont vert des
+     deux côtés).
+  4. **Preuves** : 20 contrôles pgTAP (`11_open_version_from_previous`) — droits (contributeur
+     42501, tenant étranger P0002), cycle étranger, modèle divergent, copie exacte, source
+     intacte, l'auteur corrige sa ligne reprise, le DAF la décide, version vide, reprise d'un
+     brouillon, anonyme sans droit. Recette navigateur : v2 ouverte depuis la v1 `driver`
+     publiée → deux lignes « Proposée » → taux corrigé 0,05 → 0,06 → publication
+     **1 440 000 / 86 400**. Le taux corrigé est resté un taux.
+
+[ALERTE]
+  1. **Le prochain frottement est connu et NON traité** : les copies reviennent en `proposed`,
+     donc une version de 300 lignes reprise coûte 300 approbations une à une, même pour les
+     lignes identiques. C'est voulu (une approbation est une décision dans SA version — `05`
+     contrôle 14, `07` trace) mais le geste « approuver tout ce qui est identique à la source »
+     n'existe pas. À construire SEULEMENT quand un tenant réel le mesure ; l'infrastructure est
+     prête (`parent_version_id` + comparaison valeur à valeur).
+  2. La reprise est proposée **par défaut** dès qu'une version existe dans le cycle. Sur le
+     tenant réel, « Ouvrir une version » sans regarder le sélecteur reprend donc la dernière
+     version — c'est l'usage attendu après publication, mais c'est un changement de défaut.
+  3. `TARJIH_ADMIN_TECHNIQUE` est au coffre sans plus aucun objet (compte banni) : candidate à
+     la suppression, SOP-001 §8quater (double autorisation) — non faite, à la main d'Amine.
+  4. Toujours ouverts : ALERTE 4 (aucun comparatif de versions — la filiation écrite le rend
+     désormais possible), 5 (séparation des devoirs, export sans origines), 8 (annotation
+     contributeur), 9 (scénarios parallèles), 10 (RBAC par dimension) ; échec de connexion du
+     11/09 sans cause (instrumenté, non reproduit en 4 passages).
+
+[NEXT]
+  1. **ALERTE 4 — comparer deux versions** : « qu'est-ce qui a changé ? » a maintenant sa
+     matière (`parent_version_id`, `parameter_key` stable, valeurs jsonb). C'est aussi la
+     brique du geste « approuver l'identique » (ALERTE 1).
+  2. Task 10 (déploiement preview).
+
+[CTX]
+  Session `532a0472` (suite), 2026-09-13. Commits : `70066ac` (reprise + taux) + doc.
+  Migration : appliquée en prod avec `-1` APRÈS épreuve du rollback ; les DIX pgTAP rejoués.
+  Déploiement : `deploy?uuid=l3fov9fbnjvrgt5ly75b7g5r` ; ~5 min jusqu'au conteneur `healthy`
+  sur le sha. La recette `ouvrirVersion(page, origine)` prend `empty:<modèle>` ou
+  `resume:<uuid>` (`versionOriginValue`). Reste inchangé : entrée du 2026-09-06, [CTX].
+
+[MEMO]
+  1. **Une colonne prévue « pour plus tard » et jamais écrite, c'est la troisième cette
+     semaine** (`calculation_model`, registre, `parent_version_id`). La requête « quelles
+     colonnes n'ont qu'une valeur distincte en production ? » vaut un audit.
+  2. **Reprendre ≠ hériter.** Copier une approbation aurait supprimé la ressaisie ET la
+     décision ; le produit ne vend que la première.
+  3. **Un défaut adjacent trouvé en lisant le fichier qu'on touche se corrige avec le chantier**
+     (règle n°3) — et la recette qui joue le chantier doit passer PAR ce défaut, sinon la
+     correction n'est qu'une croyance.
+```
+
+---
+
 ## 2026-09-12/13 — Rien d'entamé ne reste ouvert : ALERTE 7 fermée, `cost_center` joué dans un navigateur, coffre soldé
 
 ```
