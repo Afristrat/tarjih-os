@@ -70,9 +70,23 @@
      11/09 sans cause (instrumenté, non reproduit en 4 passages).
 
 [NEXT]
-  1. **ALERTE 4 — comparer deux versions** : « qu'est-ce qui a changé ? » a maintenant sa
-     matière (`parent_version_id`, `parameter_key` stable, valeurs jsonb). C'est aussi la
-     brique du geste « approuver l'identique » (ALERTE 1).
+  1. **ALERTE 4 — comparer deux versions** (cadrage posé le 2026-09-13, réponse à « comment
+     comparer ? » — validé par Amine : aucune objection reçue, à confirmer avant de coder) :
+     · NIVEAU 1, hypothèses : jointure sur `(dimension_id, parameter_key)` (unicité garantie
+       par contrainte) → identique / modifiée (afficher les TERMES : volume × prix, taux,
+       montant — jamais un produit) / ajoutée / retirée-ou-rejetée. Approuvées des deux côtés si
+       B publiée ; proposées incluses si B brouillon.
+     · NIVEAU 2, montants publiés : jointure `(dimension, compte, période)`, delta et %, puis
+       Total produits / Total charges / Résultat avec variation — arithmétique `bigint` de
+       `amounts.ts`, jamais `Number` (piège mesuré le 08/09 : −8,7 % affiché pour −27,8 % réel).
+       Seulement si les DEUX sont publiées.
+     · Deux fonctions SQL set-returning `security invoker` sur les tables sous RLS (le
+       périmètre d'un contributeur s'applique tout seul), pgTAP `12_…`. Écran
+       `/app/consolidation/[id]?with=<uuid>`, `with = parent_version_id` par défaut.
+     · Signal gratuit : `input_hash` égaux ⇒ entrées identiques, comparaison vide, le dire.
+     · Ordre : NIVEAU 1 D'ABORD — il porte la clé du geste « approuver l'identique »
+       (`decide_hypothesis` ligne à ligne en transaction, motif daté ; une décision par ligne,
+       la trace `07` tient). Le niveau 2 seul redonnerait un chiffre sans explication.
   2. Task 10 (déploiement preview).
 
 [CTX]
