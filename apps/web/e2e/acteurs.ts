@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 /**
  * Les acteurs de la recette et la façon de les faire entrer.
@@ -66,12 +66,36 @@ export async function connecter(page: Page, acteur: Acteur): Promise<void> {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Adresse e-mail").fill(acteur.courriel);
   await page.getByLabel("Mot de passe").fill(motDePasse(acteur));
+
+  // Le 2026-09-11, cette connexion a échoué en laissant l'adresse `/login` NUE
+  // — sans `?error=`, que chaque chemin d'échec de l'action serveur ajoute — et
+  // GoTrue n'a reçu aucune requête. Le seul état compatible : le POST n'est
+  // jamais parti, ou n'est jamais revenu. Rien ne le disait ; l'échec n'a pas
+  // été reproduit, sa cause reste ouverte. La prochaine fois, le message
+  // distinguera un POST absent, un POST en erreur et une session refusée.
+  const soumission = page
+    .waitForResponse(
+      (reponse) =>
+        reponse.request().method() === "POST" && new URL(reponse.url()).pathname === "/login",
+    )
+    .then(
+      (reponse) => `le POST /login a reçu ${reponse.status()}`,
+      (raison: Error) => `aucune réponse au POST /login : ${raison.message.split("\n")[0]}`,
+    );
   await page.getByRole("button", { name: "Se connecter" }).click();
 
-  await expect(
-    page,
-    `${acteur.role} n'a pas pu ouvrir de session sur le domaine déployé`,
-  ).toHaveURL(/\/app(\?|$)/);
+  // Pas `expect(page).toHaveURL` : un matcher de page attache à son échec un
+  // instantané d'accessibilité, valeurs des champs comprises — sur cet écran,
+  // le mot de passe en clair (cf. `playwright.config.ts`). `waitForURL` échoue
+  // sans rien capturer, et le message porte ce qui explique un refus.
+  try {
+    await page.waitForURL(/\/app(\?|$)/, { timeout: 15_000 });
+  } catch {
+    throw new Error(
+      `${acteur.role} n'a pas pu ouvrir de session sur le domaine déployé — adresse` +
+        ` ${page.url()} (${await soumission})`,
+    );
+  }
 }
 
 /**

@@ -219,9 +219,12 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
     }
   }
 
-  // Le moteur accepte ce troisième inducteur (`resolvers.DRIVERS`) alors
-  // qu'aucun formulaire ne le produit encore. Le lire quand même : sans cela
-  // l'écran annoncerait « non calculable » une hypothèse que le moteur publie.
+  // Le second inducteur du moteur (`resolvers.DRIVERS`). Cette lecture a
+  // précédé de plusieurs mois le formulaire qui le produit : jusqu'au
+  // 2026-09-08, le commentaire posé ici disait « aucun formulaire ne le produit
+  // encore » — et c'est ce constat, écrit et jamais repris, qui a tenu la
+  // moitié du moteur hors d'atteinte sans qu'aucun test ne tombe. Le formulaire
+  // existe depuis `3ed255c` et la recette `modeles-de-calcul` le joue.
   if (driver === "percent_of" && Array.isArray(value.period_ids)) {
     const rate = typeof value.rate === "string" ? value.rate : null;
     const baseAccountCode =
