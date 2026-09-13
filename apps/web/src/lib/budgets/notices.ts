@@ -33,6 +33,10 @@ const BUDGET_NOTICES: Record<string, Notice> = {
     tone: "refus",
   },
   "version-created": { text: "Version candidate créée. Les contributions peuvent commencer.", tone: "fait" },
+  "version-resumed": {
+    text: "Version candidate ouverte à partir de la précédente : ses hypothèses sont reprises en propositions, à décider de nouveau dans cette version.",
+    tone: "fait",
+  },
   "version-creation-failed": { text: "La version n’a pas été créée.", tone: "refus" },
   // Publication d'un calcul (task 07).
   "calculation-empty": {

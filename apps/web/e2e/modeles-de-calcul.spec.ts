@@ -72,6 +72,10 @@ const PRODUIT_ATTENDU = 320 * 4500 * 100;
 const CHARGE_ATTENDUE = 320 * 4500 * 0.05 * 100;
 const RESULTAT_ATTENDU = PRODUIT_ATTENDU - CHARGE_ATTENDUE;
 
+/** Le taux corrigé dans la version reprise, et la charge qu'il produit. */
+const TAUX_CORRIGE = "0.06";
+const CHARGE_CORRIGEE_ATTENDUE = 320 * 4500 * 0.06 * 100;
+
 /** Montant du contrôle `cost_center`, saisi celui-là : le modèle est direct. */
 const MONTANT_CENTRE_DE_COUTS = "2500.00";
 const MONTANT_CENTRE_DE_COUTS_ATTENDU = Math.round(Number(MONTANT_CENTRE_DE_COUTS) * 100);
@@ -83,6 +87,7 @@ const REFUS_DE_SAISIE = "Renseignez une dimension, un paramètre, une unité et 
 let versionInducteurs = "";
 let versionCentreRefusee = "";
 let versionCentreValide = "";
+let versionReprise = "";
 
 // ponytail: quatrième copie de ce helper (parcours-vertical, export-rbac,
 // tracabilite l'ont déjà à l'identique) ; à extraire dans un module partagé au
@@ -91,14 +96,18 @@ function formulaire(page: Page, bouton: string) {
   return page.locator("form").filter({ has: page.getByRole("button", { name: bouton }) });
 }
 
-/** Ouvre une version dans le cycle de la recette, sur le modèle demandé. */
-async function ouvrirVersion(page: Page, modele: string): Promise<string> {
+/**
+ * Ouvre une version dans le cycle de la recette. `origine` est la valeur du
+ * sélecteur unique de l'écran : `empty:<modèle>` pour une version vide,
+ * `resume:<id>` pour reprendre une version du cycle (`versionOriginValue`).
+ */
+async function ouvrirVersion(page: Page, origine: string): Promise<string> {
   await page.goto("/app/budgets", { waitUntil: "domcontentloaded" });
 
   const bloc = page.locator(".cycle-block").filter({ hasText: NOM_CYCLE });
   await expect(bloc, "le bloc du cycle de la recette n'est pas identifiable seul").toHaveCount(1);
 
-  await bloc.locator('select[name="calculation_model"]').selectOption(modele);
+  await bloc.locator('select[name="origin"]').selectOption(origine);
   await bloc.getByRole("button", { name: "Ouvrir une version" }).click();
 
   await expect(page).toHaveURL(/\/app\/budgets\/[0-9a-f-]{36}/);
@@ -177,7 +186,7 @@ test.describe("Le modèle « Inducteurs » publie des montants que personne n'a 
 
     await expect(page.getByRole("heading", { name: NOM_CYCLE })).toBeVisible();
 
-    versionInducteurs = await ouvrirVersion(page, "driver");
+    versionInducteurs = await ouvrirVersion(page, "empty:driver");
 
     // LE marqueur discriminant du modèle : le bloc d'inducteurs n'est rendu que
     // si la version porte `calculation_model = 'driver'`. Jusqu'au 2026-09-08,
@@ -314,7 +323,7 @@ test.describe("Le modèle « Centres de coûts » refuse un produit, et le dit �
     page,
   }) => {
     await connecter(page, DAF);
-    versionCentreRefusee = await ouvrirVersion(page, "cost_center");
+    versionCentreRefusee = await ouvrirVersion(page, "empty:cost_center");
 
     await connecter(page, CONTRIBUTEUR);
     await page.goto(versionCentreRefusee, { waitUntil: "domcontentloaded" });
@@ -376,7 +385,7 @@ test.describe("Le modèle « Centres de coûts » refuse un produit, et le dit �
     const erreurs = surveillerLaConsole(page);
 
     await connecter(page, DAF);
-    versionCentreValide = await ouvrirVersion(page, "cost_center");
+    versionCentreValide = await ouvrirVersion(page, "empty:cost_center");
 
     await connecter(page, CONTRIBUTEUR);
     await page.goto(versionCentreValide, { waitUntil: "domcontentloaded" });
@@ -411,5 +420,106 @@ test.describe("Le modèle « Centres de coûts » refuse un produit, et le dit �
     ).toBe(MONTANT_CENTRE_DE_COUTS_ATTENDU);
 
     expect(erreurs(), "erreurs de console sur l'écran de consolidation").toEqual([]);
+  });
+});
+
+test.describe("Une version suivante reprend la précédente au lieu de la ressaisir", () => {
+  test("le DAF ouvre la version suivante à partir de la version « Inducteurs » publiée", async ({
+    page,
+  }) => {
+    expect(versionInducteurs, "la version source n'a pas été livrée").not.toEqual("");
+    const erreurs = surveillerLaConsole(page);
+    await connecter(page, DAF);
+
+    // Le sélecteur propose la reprise en premier et par défaut : c'est l'usage
+    // attendu après une publication. Jusqu'au 2026-09-13, ouvrir une version
+    // insérait une ligne vide et l'immuabilité se payait en ressaisie intégrale.
+    const sourceId = versionInducteurs.split("/").pop() ?? "";
+    versionReprise = await ouvrirVersion(page, `resume:${sourceId}`);
+    expect(versionReprise, "la reprise a rendu la version source").not.toEqual(versionInducteurs);
+
+    await expect(
+      page.getByText("Version candidate ouverte à partir de la précédente", { exact: false }),
+    ).toBeVisible();
+
+    // Les deux hypothèses sont là, à l'état PROPOSÉ : reprises, pas approuvées.
+    // Une approbation est une décision dans SA version, jamais un héritage.
+    for (const parametre of ["chiffre_affaires", "commission_apport"]) {
+      const ligne = page.getByRole("row", { name: new RegExp(parametre) });
+      await expect(ligne, `« ${parametre} » n'a pas été repris`).toHaveCount(1);
+      await expect(
+        ligne.locator(".state-tag"),
+        `« ${parametre} » a été repris avec une décision qu'il n'a pas reçue ici`,
+      ).toHaveText("Proposée");
+    }
+    await expect(page.getByRole("row", { name: /chiffre_affaires/ })).toContainText(VOLUME);
+    await expect(page.getByRole("row", { name: /commission_apport/ })).toContainText(CODE_PRODUIT);
+
+    // Et la filiation est écrite, là où les versions se listent.
+    await page.goto("/app/budgets", { waitUntil: "domcontentloaded" });
+    await expect(
+      page.locator(".cycle-block").filter({ hasText: NOM_CYCLE }).getByText(/reprise de la version 1/),
+      "la version reprise ne dit pas de qui elle vient",
+    ).toBeVisible();
+
+    expect(erreurs(), "erreurs de console sur la version reprise").toEqual([]);
+  });
+
+  test("le contributeur corrige le taux repris — il reste un taux, sur la même base", async ({
+    page,
+  }) => {
+    const erreurs = surveillerLaConsole(page);
+    await connecter(page, CONTRIBUTEUR);
+    await page.goto(versionReprise, { waitUntil: "domcontentloaded" });
+    await page
+      .getByRole("row", { name: /commission_apport/ })
+      .getByRole("link", { name: "Détail" })
+      .click();
+
+    // Jusqu'au 2026-09-13, la fiche d'un taux n'offrait qu'un champ « Montant »
+    // et la correction réécrivait l'hypothèse en saisie directe — dans une
+    // version « Inducteurs », que le moteur aurait refusée à la publication.
+    const correction = formulaire(page, "Corriger");
+    await expect(
+      correction.locator('input[name="rate"]'),
+      "la fiche d'un taux ne propose pas de corriger le taux",
+    ).toBeVisible();
+    await correction.locator('input[name="rate"]').fill(TAUX_CORRIGE);
+    await correction.getByRole("button", { name: "Corriger" }).click();
+
+    await expect(page.getByText("Correction enregistrée", { exact: false })).toBeVisible();
+    await expect(
+      formulaire(page, "Corriger").locator('input[name="rate"]'),
+      "après correction, l'hypothèse n'est plus un taux",
+    ).toBeVisible();
+    await expect(page.locator("main")).toContainText(`${TAUX_CORRIGE} × ${CODE_PRODUIT}`);
+
+    expect(erreurs(), "erreurs de console sur la fiche d'hypothèse").toEqual([]);
+  });
+
+  test("le DAF approuve, le DG publie : la charge est le NOUVEAU taux sur la base recalculée", async ({
+    page,
+  }) => {
+    await connecter(page, DAF);
+    await approuver(page, versionReprise, "chiffre_affaires");
+    await approuver(page, versionReprise, "commission_apport");
+
+    const erreurs = surveillerLaConsole(page);
+    await connecter(page, DG);
+    const versionId = versionReprise.split("/").pop() ?? "";
+    await page.goto(`/app/consolidation/${versionId}`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Calculer et publier" }).click();
+    await expect(page.getByText("Calcul publié", { exact: false })).toBeVisible();
+
+    expect(
+      await montantPublie(page, CODE_PRODUIT),
+      "le produit repris n'a pas été recalculé à l'identique",
+    ).toBe(PRODUIT_ATTENDU);
+    expect(
+      await montantPublie(page, CODE_CHARGE),
+      "la charge n'est pas le taux corrigé appliqué à la base",
+    ).toBe(CHARGE_CORRIGEE_ATTENDUE);
+
+    expect(erreurs(), "erreurs de console sur la consolidation reprise").toEqual([]);
   });
 });

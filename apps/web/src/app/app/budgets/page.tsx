@@ -8,6 +8,7 @@ import { noticeFrom } from "@/lib/budgets/notices";
 import {
   CALCULATION_MODELS,
   calculationModelLabel,
+  versionOriginValue,
   versionStatusLabel,
   versionStatusTone,
 } from "@/lib/budgets/scope";
@@ -22,9 +23,11 @@ type CycleRow = {
 };
 
 type VersionRow = {
+  calculation_model: string;
   created_at: string;
   cycle_id: string;
   id: string;
+  parent_version_id: string | null;
   status: string;
   version_no: number;
 };
@@ -52,7 +55,7 @@ export default async function BudgetsPage({
       .order("name"),
     supabase
       .from("budget_versions")
-      .select("id, cycle_id, version_no, status, created_at")
+      .select("id, cycle_id, version_no, status, created_at, calculation_model, parent_version_id")
       .eq("tenant_id", context.tenantId)
       .order("version_no", { ascending: false }),
     searchParams,
@@ -132,6 +135,11 @@ export default async function BudgetsPage({
           ) : (
             cycles.map((cycle) => {
               const cycleVersions = versions.filter((version) => version.cycle_id === cycle.id);
+              // Triées du numéro le plus haut au plus bas : la première est la
+              // dernière ouverte, et c'est d'elle qu'on repart par défaut.
+              const latest = cycleVersions[0];
+              const numberOf = (id: string | null): number | null =>
+                cycleVersions.find((version) => version.id === id)?.version_no ?? null;
 
               return (
                 <div className="cycle-block" key={cycle.id}>
@@ -145,21 +153,37 @@ export default async function BudgetsPage({
                     {manages ? (
                       <form action={createBudgetVersion} className="version-opener">
                         <input type="hidden" name="cycle_id" value={cycle.id} />
-                        {/* Le modèle se choisit ICI et nulle part ailleurs : il
-                            décide de ce que le moteur saura faire des
-                            hypothèses, et il ne se change plus une fois qu'elles
-                            sont déposées. */}
-                        <label className="visually-hidden" htmlFor={`model-${cycle.id}`}>
-                          Modèle de calcul
+                        {/* UN choix : repartir d'une version du cycle — ses
+                            hypothèses sont reprises, son modèle hérité — ou
+                            ouvrir une version vide sur un modèle. Le modèle
+                            décide de ce que le moteur saura faire et ne se
+                            change plus une fois des hypothèses déposées ; un
+                            second sélecteur aurait permis de le contredire. */}
+                        <label className="visually-hidden" htmlFor={`origin-${cycle.id}`}>
+                          Origine de la version
                         </label>
                         <select
-                          id={`model-${cycle.id}`}
-                          name="calculation_model"
-                          defaultValue="direct"
+                          id={`origin-${cycle.id}`}
+                          name="origin"
+                          defaultValue={
+                            latest
+                              ? versionOriginValue({ kind: "resume", sourceVersionId: latest.id })
+                              : versionOriginValue({ kind: "empty", model: "direct" })
+                          }
                         >
+                          {cycleVersions.map((version) => (
+                            <option
+                              key={version.id}
+                              value={versionOriginValue({ kind: "resume", sourceVersionId: version.id })}
+                            >
+                              Reprendre la version {version.version_no} —{" "}
+                              {calculationModelLabel(version.calculation_model)} ·{" "}
+                              {versionStatusLabel(version.status)}
+                            </option>
+                          ))}
                           {CALCULATION_MODELS.map((model) => (
-                            <option key={model} value={model}>
-                              {calculationModelLabel(model)}
+                            <option key={model} value={versionOriginValue({ kind: "empty", model })}>
+                              Version vide — {calculationModelLabel(model)}
                             </option>
                           ))}
                         </select>
@@ -192,7 +216,12 @@ export default async function BudgetsPage({
                             <tr key={version.id}>
                               <td className="dimension-cell">
                                 <strong>Version {version.version_no}</strong>
-                                <span>{cycle.name}</span>
+                                <span>
+                                  {calculationModelLabel(version.calculation_model)}
+                                  {version.parent_version_id
+                                    ? ` · reprise de la version ${numberOf(version.parent_version_id) ?? "?"}`
+                                    : ""}
+                                </span>
                               </td>
                               <td>
                                 <span

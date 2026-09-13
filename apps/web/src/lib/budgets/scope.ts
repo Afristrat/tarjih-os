@@ -49,6 +49,36 @@ const DRIVER_LABELS: Record<string, string> = {
   volume_price: "Volume × prix unitaire",
 };
 
+/**
+ * Ce dont part une version qu'on ouvre : rien, sur un modèle choisi — ou une
+ * version du cycle, dont elle reprend les hypothèses et hérite le modèle.
+ */
+export type VersionOrigin =
+  | { kind: "empty"; model: string }
+  | { kind: "resume"; sourceVersionId: string };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** La valeur de formulaire qui porte une origine — l'inverse de `readVersionOrigin`. */
+export function versionOriginValue(origin: VersionOrigin): string {
+  return origin.kind === "empty" ? `empty:${origin.model}` : `resume:${origin.sourceVersionId}`;
+}
+
+/** Relit une origine soumise par formulaire ; `null` pour tout ce qui n'en est pas une. */
+export function readVersionOrigin(raw: string | null): VersionOrigin | null {
+  if (raw === null) {
+    return null;
+  }
+  const [kind, rest] = raw.split(":", 2);
+  if (kind === "empty" && rest !== undefined && CALCULATION_MODELS.includes(rest)) {
+    return { kind: "empty", model: rest };
+  }
+  if (kind === "resume" && rest !== undefined && UUID.test(rest)) {
+    return { kind: "resume", sourceVersionId: rest };
+  }
+  return null;
+}
+
 export function calculationModelLabel(model: string): string {
   return MODEL_LABELS[model] ?? model;
 }

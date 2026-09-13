@@ -45,6 +45,8 @@ export type HypothesisFacts = {
   periodId: string | null;
   /** `null` pour une saisie directe ; sinon l'inducteur employé. */
   driver: string | null;
+  /** Le compte dont un taux (`percent_of`) prend sa base ; `null` sinon. */
+  baseAccountCode: string | null;
   /**
    * Nombre de périodes que porte la valeur. Seule la première est décrite par
    * les autres champs : ce compte existe pour que l'écran puisse le DIRE plutôt
@@ -185,6 +187,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
   const empty: HypothesisFacts = {
     accountCode: null,
     amount: null,
+    baseAccountCode: null,
     driver: null,
     periodCount: 0,
     periodId: null,
@@ -212,6 +215,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
         // Le produit n'est pas recalculé ici : le montant officiel est celui du
         // moteur. On montre l'inducteur tel qu'il a été saisi.
         amount: volume !== null && unitPrice !== null ? `${volume} × ${unitPrice}` : null,
+        baseAccountCode: null,
         driver,
         periodCount: value.periods.length,
         periodId: typeof first.period_id === "string" ? first.period_id : null,
@@ -235,6 +239,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
       // Un taux n'a pas de montant tant que sa base n'est pas résolue : on
       // montre l'inducteur, pas un chiffre qui n'engagerait personne.
       amount: rate !== null && baseAccountCode !== null ? `${rate} × ${baseAccountCode}` : null,
+      baseAccountCode,
       driver,
       periodCount: value.period_ids.length,
       periodId: typeof first === "string" ? first : null,
@@ -247,6 +252,7 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
       return {
         accountCode,
         amount: typeof first.amount === "string" ? first.amount : null,
+        baseAccountCode: null,
         driver,
         periodCount: value.amounts.length,
         periodId: typeof first.period_id === "string" ? first.period_id : null,
@@ -255,6 +261,48 @@ export function readHypothesisFacts(value: unknown): HypothesisFacts {
   }
 
   return { ...empty, accountCode, driver };
+}
+
+/**
+ * Reconstruit la valeur d'une hypothèse autour de ses faits déjà en base.
+ *
+ * Corriger un chiffre ne doit ni changer le compte visé, ni la période, ni
+ * l'inducteur, ni la base d'un taux : ces faits ont été proposés et, le cas
+ * échéant, soumis à décision. Seuls les termes saisissables changent — montant,
+ * volume et prix, ou taux. Rend `null` si le chiffre est illisible ou si les
+ * faits manquent — l'écran refuse alors plutôt que d'écrire une valeur que le
+ * moteur rejettera plus tard. `field` lit un champ du formulaire ; `amountField`
+ * nomme celui du montant d'une saisie directe, qui diffère selon qu'on corrige
+ * ou qu'on décide.
+ */
+export function rebuildValue(
+  facts: HypothesisFacts,
+  field: (name: string) => string | null,
+  amountField = "value",
+): Record<string, unknown> | null {
+  if (facts.accountCode === null || facts.periodId === null) {
+    return null;
+  }
+
+  if (facts.driver === "volume_price") {
+    return buildVolumePriceValue(
+      facts.accountCode,
+      facts.periodId,
+      field("volume") ?? "",
+      field("unit_price") ?? "",
+    );
+  }
+
+  if (facts.driver === "percent_of") {
+    return buildPercentOfValue(
+      facts.accountCode,
+      facts.baseAccountCode ?? "",
+      facts.periodId,
+      field("rate") ?? "",
+    );
+  }
+
+  return buildDirectValue(facts.accountCode, facts.periodId, field(amountField) ?? "");
 }
 
 /**

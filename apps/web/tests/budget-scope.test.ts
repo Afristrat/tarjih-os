@@ -11,6 +11,8 @@ import {
   hasDimensionPermission,
   hypothesisStatusLabel,
   hypothesisStatusTone,
+  readVersionOrigin,
+  versionOriginValue,
   versionStatusLabel,
   versionStatusTone,
   type DimensionGrantRow,
@@ -144,4 +146,24 @@ test("une valeur à plusieurs périodes est affichée sans faire passer la premi
   };
 
   assert.equal(formatHypothesisValue(deuxPeriodes), "10 (1re de 2 périodes)");
+});
+
+// L'ouverture d'une version tient en UN choix : vide sur un modèle, ou reprise
+// d'une version du cycle. Deux sélecteurs auraient laissé choisir un modèle
+// contraire à celui de la source.
+test("l'origine d'une version se lit d'une seule valeur de formulaire, et refuse le reste", () => {
+  assert.deepEqual(readVersionOrigin(versionOriginValue({ kind: "empty", model: "driver" })), {
+    kind: "empty",
+    model: "driver",
+  });
+  const source = "77777777-7777-4777-8777-777777777777";
+  assert.deepEqual(readVersionOrigin(versionOriginValue({ kind: "resume", sourceVersionId: source })), {
+    kind: "resume",
+    sourceVersionId: source,
+  });
+
+  assert.equal(readVersionOrigin(null), null);
+  assert.equal(readVersionOrigin("empty:boule_de_cristal"), null, "un modèle inconnu");
+  assert.equal(readVersionOrigin("resume:pas-un-uuid"), null, "une source qui n'est pas un identifiant");
+  assert.equal(readVersionOrigin("driver"), null, "l'ancienne valeur nue du sélecteur de modèle");
 });
