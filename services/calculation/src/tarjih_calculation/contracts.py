@@ -159,7 +159,7 @@ def _parse_exact(raw: Any, where: str) -> Decimal:
     représentation binaire exacte, et un budget ne tolère pas cet écart. Un
     `float` est donc refusé à la frontière plutôt que converti en silence.
     """
-    if isinstance(raw, bool) or isinstance(raw, float):
+    if isinstance(raw, bool | float):
         raise SnapshotError("amount_not_exact", f"{where} : nombre non exact ({raw!r})")
     if isinstance(raw, int):
         raw = str(raw)
@@ -249,9 +249,7 @@ def parse_snapshot(payload: Any) -> Snapshot:
             "engine_version_invalid", "snapshot : « engine_version » attendu en x.y.z"
         )
 
-    model = _require_choice(
-        _require_str(payload, "model", "snapshot"), MODELS, "model", "snapshot"
-    )
+    model = _require_choice(_require_str(payload, "model", "snapshot"), MODELS, "model", "snapshot")
     currency = _require_str(payload, "currency", "snapshot")
     if not _CURRENCY_RE.match(currency):
         raise SnapshotError("currency_invalid", "snapshot : « currency » attendu en ISO 4217")
@@ -270,9 +268,7 @@ def parse_snapshot(payload: Any) -> Snapshot:
                 "compte",
             ),
         )
-        for item in (
-            _require_mapping(raw, "compte") for raw in _require_list(payload, "accounts")
-        )
+        for item in (_require_mapping(raw, "compte") for raw in _require_list(payload, "accounts"))
     )
     periods = tuple(
         Period(
@@ -280,9 +276,7 @@ def parse_snapshot(payload: Any) -> Snapshot:
             starts_on=_require_str(item, "starts_on", "période"),
             ends_on=_require_str(item, "ends_on", "période"),
         )
-        for item in (
-            _require_mapping(raw, "période") for raw in _require_list(payload, "periods")
-        )
+        for item in (_require_mapping(raw, "période") for raw in _require_list(payload, "periods"))
     )
     dimensions = tuple(
         Dimension(

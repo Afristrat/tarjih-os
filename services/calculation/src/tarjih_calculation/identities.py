@@ -93,8 +93,7 @@ def check(
         parts[key] = parts.get(key, Decimal(0)) + source.amount
 
     published = {
-        (value.dimension_id, value.account_id, value.period_id): value.amount
-        for value in values
+        (value.dimension_id, value.account_id, value.period_id): value.amount for value in values
     }
 
     for key, total in parts.items():

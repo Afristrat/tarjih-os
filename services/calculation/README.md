@@ -6,10 +6,24 @@ rend `output_hash` reproductible.
 
 ## Exécuter les contrôles
 
+Installation éditable, une fois, avec les outils de gate épinglés :
+
 ```bash
-cd services/calculation
-PYTHONPATH=src python -m unittest discover -s tests
+pip install -e "services/calculation[api,dev]"
 ```
+
+Puis, depuis `services/calculation` — sans argument, la configuration de
+`pyproject.toml` (et `ruff.toml` à la racine) est la seule source de ce qui
+est vérifié :
+
+```bash
+python -m unittest discover -s tests
+python -m mypy
+python -m ruff check ../.. && python -m ruff format --check ../..
+```
+
+Les mêmes commandes sont enchaînées par `npm run test`, `npm run typecheck`
+et `npm run lint` à la racine, et par la CI (`.github/workflows/ci.yml`).
 
 Déterminisme entre processus (l'empreinte ne doit pas dépendre de la graine de
 hachage de l'interpréteur) :

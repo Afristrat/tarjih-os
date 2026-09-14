@@ -23,7 +23,9 @@ HYP_A = "99999999-9999-4999-8999-999999999999"
 HYP_B = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
 
-def snapshot(model: str = "direct", hypotheses: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def snapshot(
+    model: str = "direct", hypotheses: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """Snapshot fictif minimal, valide par défaut."""
     return {
         "engine_version": ENGINE_VERSION,
@@ -196,7 +198,9 @@ class CostCenterModel(unittest.TestCase):
         self.assertEqual(caught.exception.code, "model_scope")
 
 
-def volume_price(period_id: str = Q1, volume: str = "100", unit_price: str = "12.5") -> dict[str, Any]:
+def volume_price(
+    period_id: str = Q1, volume: str = "100", unit_price: str = "12.5"
+) -> dict[str, Any]:
     return {
         "id": HYP_A,
         "dimension_id": PRODUCT,
@@ -240,7 +244,9 @@ class DriverModel(unittest.TestCase):
         self.assertEqual(amounts[COST_ACCOUNT], Decimal("437.500000"))
 
     def test_ordre_des_hypotheses_sans_effet_sur_le_taux(self) -> None:
-        direct_order = calculate(snapshot(model="driver", hypotheses=[volume_price(), percent_of()]))
+        direct_order = calculate(
+            snapshot(model="driver", hypotheses=[volume_price(), percent_of()])
+        )
         reverse_order = calculate(
             snapshot(model="driver", hypotheses=[percent_of(), volume_price()])
         )
@@ -283,9 +289,7 @@ class Identites(unittest.TestCase):
                 ]
             )
         )
-        self.assertEqual(
-            sum(value.amount for value in result.values), Decimal("15.000000")
-        )
+        self.assertEqual(sum(value.amount for value in result.values), Decimal("15.000000"))
 
     def test_periode_hors_snapshot_refusee(self) -> None:
         with self.assertRaises(SnapshotError) as caught:

@@ -5,13 +5,17 @@
   "scripts": {
     "dev": "npm --prefix apps/web run dev",
     "build": "npm --prefix apps/web run build",
-    "lint": "npm --prefix apps/web run lint",
-    "typecheck": "npm --prefix apps/web run typecheck",
-    "test": "npm --prefix apps/web test",
-    "test:db": "node ./node_modules/supabase/dist/supabase.js test db supabase/tests --local",
+    "lint": "npm run lint:web && npm run lint:calc",
+    "lint:web": "npm --prefix apps/web run lint",
+    "lint:calc": "python -m ruff check . && python -m ruff format --check .",
+    "typecheck": "npm run typecheck:web && npm run typecheck:calc",
+    "typecheck:web": "npm --prefix apps/web run typecheck",
+    "typecheck:calc": "cd services/calculation && python -m mypy",
+    "test": "npm run test:web && npm run test:calc && npm run test:artefacts",
+    "test:web": "npm --prefix apps/web test",
+    "test:calc": "cd services/calculation && python -m unittest discover -s tests",
+    "test:artefacts": "python scripts/validate_prompt_artifacts.py",
+    "test:db": "bash scripts/db-gates-cluster.sh",
     "test:e2e": "npm --prefix apps/web run test:e2e"
-  },
-  "devDependencies": {
-    "supabase": "2.112.0"
   }
 }

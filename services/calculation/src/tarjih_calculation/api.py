@@ -65,9 +65,7 @@ async def calculate_endpoint(
     except SnapshotError as error:
         # 422 et non 500 : le snapshot est refusé, le service fonctionne. Le
         # backend a besoin du code pour marquer le run en échec sans le deviner.
-        return JSONResponse(
-            status_code=422, content={"code": error.code, "message": error.message}
-        )
+        return JSONResponse(status_code=422, content={"code": error.code, "message": error.message})
 
     return JSONResponse(
         status_code=200,

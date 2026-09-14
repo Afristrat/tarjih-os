@@ -23,7 +23,6 @@ from copy import deepcopy
 from typing import Any
 
 from tarjih_calculation import calculate
-
 from test_engine import snapshot
 
 UNUSED_ACCOUNT = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"

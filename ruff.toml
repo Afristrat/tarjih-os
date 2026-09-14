@@ -1,0 +1,13 @@
+# Lint et format de tout le Python du dépôt (moteur, ses tests, scripts/).
+# Commandes : `python -m ruff check .` et `python -m ruff format --check .`
+# depuis la racine — sans autre argument, sur le poste comme en CI.
+line-length = 100
+src = ["services/calculation/src", "services/calculation/tests"]
+
+[lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "N"]
+
+[format]
+# Toujours LF : le dépôt est normalisé LF (`.gitattributes`), le formateur ne doit
+# pas réintroduire de CRLF depuis un poste Windows.
+line-ending = "lf"

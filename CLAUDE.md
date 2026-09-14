@@ -16,13 +16,15 @@ Web SaaS avec service de calcul spécialisé.
 ## Commandes
 
 ```bash
-# Renseignées après la task 01 de setup technique.
-npm run dev
-npm run lint
-npm run typecheck
-npm test
-npm run build
+# Chaque commande couvre les DEUX piles (web + moteur Python) ; la CI joue les mêmes.
+npm run lint        # eslint · ruff check + ruff format --check
+npm run typecheck   # tsc --noEmit · mypy --strict
+npm test            # node --test · unittest · artefacts de prompts
+npm run build       # next build
+npm run test:db     # chaîne du schéma sur une base jetable du cluster (TARJIH_SSH)
+npm run test:e2e    # Playwright contre la production, par le broker de secrets
 ```
+Prérequis Python : `pip install -e "services/calculation[api,dev]"`.
 
 ## Sources de vérité
 

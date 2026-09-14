@@ -8,6 +8,15 @@ dependencies = []
 # Le coeur reste sans dependance : seule l'exposition HTTP en demande.
 [project.optional-dependencies]
 api = ["fastapi==0.115.6", "uvicorn[standard]==0.34.0"]
+# Outils de gate de TOUT le Python du dépôt (moteur, tests, `scripts/`), épinglés :
+# ce qui passe sur le poste doit passer en CI, à la version près.
+dev = [
+  "httpx==0.28.1",
+  "jsonschema==4.25.1",
+  "mypy==1.19.1",
+  "ruff==0.15.21",
+  "types-jsonschema==4.25.1.20251009",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -15,3 +24,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tarjih_calculation"]
+
+# Gate de typage : `python -m mypy`, sans argument, depuis ce dossier. La
+# configuration ci-dessous est la seule source de ce qu'il vérifie, sur le poste
+# comme en CI. Le lint (`ruff`) est configuré à la racine du dépôt, `ruff.toml`,
+# parce qu'il couvre aussi `scripts/`.
+[tool.mypy]
+strict = true
+mypy_path = "src"
+files = ["src", "tests", "../../scripts"]
