@@ -4,6 +4,119 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-14 — Chaque gate est exigée, plus seulement lancée : CI, ruff/mypy configurés, chaîne du schéma rejouée sur une base vide
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`9abc801`** (+ entrée documentaire), worktree PROPRE.
+  Prod      : `tarjih-web` sur `70066ac` (aucun changement du web depuis) ·
+              **`tarjih-calculation` sur `9abc801`**, `healthy` (source reformatée et
+              `pyproject.toml` modifié : le build de l'image prouve que `.[api]` s'installe
+              encore ; recette `modeles-de-calcul` rejouée après : 12/12, mêmes chiffres).
+  CI        : **`.github/workflows/ci.yml` — trois jobs VERTS** sur `master`
+              (`gh run view 34807594070`) : web 35 s · calculation 23 s · database 1 min 22.
+              Aucune annotation (actions sur leurs majeures v7).
+  Gates     : `npm run lint` / `typecheck` / `test` / `build` couvrent désormais LES DEUX
+              piles : typecheck 0 (tsc + mypy --strict, 16 fichiers Python) · lint 0 (eslint +
+              ruff check + ruff format --check) · 78 Node · 43 Python · artefacts de prompts ·
+              build OK · **140 pgTAP joués = 140 planifiés sur une base VIDE** (CI, image
+              `supabase/postgres:15.8.1.085` = prod ; et base jetable du cluster réel) ·
+              29 Playwright verts contre la prod (4,2 min, rejoués ce jour AVANT le chantier).
+  Registre  : 10 migrations, inchangé. Tenant réel : inchangé (DG admin, seul membre).
+  Tasks     : 01→09 ✅ · 10 : critère 1 (CI) ✅, critère 3 (secrets hors dépôt/logs) ✅,
+              critères 2 et 4 ouverts et RECADRÉS dans `specs/todo/10-deploiement-preview.md`.
+
+[FAIT]
+  1. **Audit « rien laissé derrière ? » rejoué par système, pas par mémoire** : tout vert, MAIS
+     deux résidus : `.playwright-mcp/` (17 fichiers du 28/08, 5 instantanés portant l'ANCIEN
+     mot de passe d'`admin.technique` en clair — valeur morte : rotée le 28/08, compte banni)
+     → supprimé ; registre de fuites ligne 92 encore « consigné » alors qu'Amine avait tranché
+     (pas de re-rotation) → ligne de clôture posée. Puis Amine : « mypy/ruff configurés nulle
+     part, c'est une grosse dette en soi, idem la chaîne des gates » — exact, et j'avais
+     minoré. Chantier ouvert et fermé dans la session, AVANT ALERTE 4.
+  2. **Gates déclarées (`33824b8`)** : `ruff.toml` à la racine (tout le Python : moteur, tests,
+     `scripts/`, LF forcé), `[tool.mypy] strict` + `files = src, tests, ../../scripts`,
+     `mypy_path`, extras `dev` épinglés (httpx, jsonschema, mypy, ruff, types-jsonschema).
+     6 fichiers reformatés, un `isinstance` fusionné, `scripts/validate_prompt_artifacts.py`
+     typé (jsonschema OBLIGATOIRE : l'ancien `try/except ImportError` rendait la validation
+     des schémas dépendante de l'état du poste). Scripts npm racine enchaînant les deux piles ;
+     dépendance morte `supabase` (CLI jamais utilisée) retirée, `node_modules` racine purgé.
+     Prérequis documenté : `pip install -e "services/calculation[api,dev]"`.
+  3. **`scripts/db-gates.sh` — la chaîne du schéma rejouée sur une base VIDE, première fois
+     depuis la création du projet** : socle minimal → 10 migrations chacune dans SA
+     transaction → registre exact → 140 pgTAP jusqu'à leur plan → seed (mots de passe
+     factices) → 9 retours arrière en ordre inverse → `pg_dump --schema-only` IDENTIQUE À
+     L'OCTET à l'état d'après la première migration, registre à 1 ligne. Ce rejeu a révélé
+     ce que le socle devait porter pour être fidèle à la plateforme (relevé en prod, pas
+     supposé) : `search_path` de la base, `usage` sur `extensions` pour `authenticated`,
+     **privilèges par défaut de `postgres` pour anon/authenticated/service_role** (sans eux
+     le rollback de `20260906140000` n'est pas un inverse exact et `03_schema_invariants` ne
+     surveille rien), `auth.identities` (forme relevée), `auth.users` pré-GoTrue de l'image
+     complétée colonne par colonne, propriétaire `supabase_auth_admin` quand l'exécutant peut.
+     `scripts/db-gates-cluster.sh` (`npm run test:db`) le joue dans une base JETABLE du
+     cluster réel par SSH (`TARJIH_SSH`), supprimée quoi qu'il arrive : 55 s, prouvé 8 fois,
+     0 base résiduelle, mémoire 30 → 58 Mio (cache).
+  4. **CI** : trois jobs, versions de la prod (Node 22, Python 3.13, image db exacte, env du
+     service `db` du Compose Supabase avec valeurs factices). Deux itérations rouges avant le
+     vert, toutes deux sur le socle (l'image n'a pas `postgres` superutilisateur ; `auth.users`
+     y existe dans sa forme d'origine) — chaque fois re-prouvé dans le cluster avant de pousser.
+  5. **Moteur redéployé sur `9abc801`** (`deploy?uuid=tuxybsaq9adb6txew2rc6zkr`, ~3 min) :
+     image taguée du sha, `healthy`, puis `e2e/modeles-de-calcul.spec.ts` 12/12 en 2,2 min
+     contre la prod — 1 440 000 / 72 000 / 86 400 inchangés. Le web n'a pas bougé (`70066ac`).
+  6. Docs à l'état réel : `docs/deployment-tarjih.md` (section « Gates » neuve ; table
+     « Comptes » relevée en base ce jour — l'ancienne disait `admin.technique` actif et le DG
+     non admin), `services/calculation/README.md`, `CLAUDE.md` (commandes), task 10.
+
+[ENCOURS]
+  Rien.
+
+[ALERTE]
+  1. Inchangées : geste « approuver l'identique » (à construire avec ALERTE 4 — la mesure
+     existe : 10 lignes sur 16 identiques le 08/09 sur le tenant réel), reprise par défaut,
+     ALERTE 4 (cadrage commité `1f3503b`), 5, 8, 9, 10, échec de connexion du 11/09.
+  2. `TARJIH_ADMIN_TECHNIQUE` toujours au coffre : Amine a demandé « supprimer quoi ? » —
+     réponse donnée (la clé seule, le compte reste banni en base pour la provenance) ; PAS de
+     « oui » reçu → non supprimée (SOP-001 §8quater, double autorisation).
+  3. `mypy` met ~3 min sur le poste (disque saturé, signalement L41) contre 23 s en CI :
+     `npm run typecheck` local est lent, pas cassé.
+  4. Les recettes Playwright restent HORS CI (comptes du coffre, prod, télescopage sur les
+     tenants de recette) : elles se jouent depuis le poste avant chaque déploiement.
+
+[NEXT]
+  1. **ALERTE 4 — comparer deux versions**, niveau 1 puis 2, geste « approuver l'identique »
+     inclus (cadrage inchangé : entrée du 2026-09-13, [NEXT] 1). Avec pgTAP `12_…` : la CI
+     le jouera sur base vide dès le push.
+  2. Task 10, critères 2 et 4 : preview (choix d'infra à trancher par Amine : seconde stack
+     Supabase ou tenants de recette en prod) ; health check du moteur à documenter.
+
+[CTX]
+  Session `018JVMAt…` (suite de `532a0472`), 2026-09-13/14. Commits : `33824b8` (gates + CI),
+  deux correctifs du socle, actions v7, puis cette entrée. Nouveaux fichiers : `ruff.toml`,
+  `.github/workflows/ci.yml`, `scripts/db-gates.sh`, `scripts/db-gates-cluster.sh`.
+  Suivre la CI : `gh run list --limit 1` puis `gh run watch <id> --exit-status`.
+  Base jetable à la main (si le script ne convient pas) : `create database x` dans
+  `supabase-db-f10v8td71bwii32blb9lalfk`, socle en `-U postgres` (superutilisateur de SA base),
+  `drop database x` ensuite — vérifier `select datname from pg_database where datname like 'tarjih%'`.
+  Le broker coupe à 300 s : Playwright exige `-TimeoutSec 570`.
+  Reste inchangé : entrée du 2026-09-06, [CTX].
+
+[MEMO]
+  1. **Une gate qui passe parce que je l'ai lancée n'est pas une gate.** Configuration
+     versionnée + commande unique + CI, sinon c'est de la dette de premier rang (mémoire
+     `feedback-gates-configurees-pas-lancees`).
+  2. **Rejouer la chaîne depuis zéro trouve ce que la prod cache** : trois hypothèses
+     implicites sur le socle (search_path, usage, privilèges par défaut) n'étaient vraies que
+     parce que la plateforme les avait posées avant nous. Un test qui ne tourne que sur la
+     base où il a été écrit ne teste pas ses propres prérequis.
+  3. **Un `grep -rn … .` à la racine traverse `node_modules`** et dépasse le délai : toujours
+     nommer les dossiers. Et `bash -n` sur un fichier UTF-8 : une apostrophe dans
+     `${VAR:?message}` casse le parseur.
+  4. **La valeur morte d'un secret reste un résidu** : la supprimer du poste, et ne pas la
+     réimprimer en l'inspectant (mon `sed` de masquage supposait une quote finale absente).
+```
+
+---
+
 ## 2026-09-13 (suite) — ALERTE 2 fermée : une version suivante reprend la précédente ; le DG administre son tenant
 
 ```
