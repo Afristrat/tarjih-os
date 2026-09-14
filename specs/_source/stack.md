@@ -33,13 +33,15 @@ created: 2026-08-07
 - Python avec typage strict ;
 - FastAPI et Pydantic uniquement lorsque le service HTTP devient nécessaire ;
 - fonctions de calcul pures, testables indépendamment du transport ;
-- déploiement prévu sur Railway, séparé de l’application web.
+- déployé comme service Coolify distinct de l’application web (`tarjih-calculation`, image construite depuis `services/calculation/Dockerfile`), joignable par le web sur le réseau interne seulement.
 
 ### Déploiement cible
 
-- Vercel pour Next.js ;
-- Supabase managé pour PostgreSQL et Auth ;
-- Railway pour le calcul Python.
+- Coolify sur le serveur `serveuria`, pour les trois services : application Next.js, moteur Python et Supabase auto-hébergé (PostgreSQL + Auth), chacun dans son conteneur ;
+- exposition publique par tunnel Cloudflare (`tarjih-os.com`, `api.tarjih-os.com`) ;
+- GitHub Actions pour les gates (`.github/workflows/ci.yml`).
+
+Vercel et Railway, retenus au cadrage (août 2026), n’ont jamais été mis en service : la production a été posée sur Coolify dès la task 02 et y reste. Détail dans `docs/deployment-tarjih.md`.
 
 ## Justification
 

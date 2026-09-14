@@ -11,7 +11,7 @@ Web SaaS avec service de calcul spécialisé.
 - Next.js App Router, React, TypeScript strict et Tailwind CSS
 - Supabase PostgreSQL, Auth SSR et RLS
 - Python typé ; FastAPI uniquement pour exposer le calcul
-- Vercel + Supabase + Railway comme cibles de déploiement
+- Coolify sur `serveuria` (web, moteur de calcul, Supabase auto-hébergé) comme unique cible de déploiement ; GitHub Actions pour les gates
 
 ## Commandes
 

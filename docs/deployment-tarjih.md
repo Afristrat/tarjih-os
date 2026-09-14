@@ -95,6 +95,15 @@ Certains contrôles tournent **hors RLS**, au plus haut privilège : ils éprouv
 
 `npm run test:e2e` joue les recettes Playwright (`apps/web/e2e/`, 29 contrôles) contre `https://tarjih-os.com`, avec les comptes du coffre injectés par le broker de secrets (`invoke-secret.ps1 -TimeoutSec 570`, la suite dure un peu plus de quatre minutes). Elles ne tournent pas en CI : deux exécutions simultanées sur les mêmes tenants de recette se télescoperaient. Elles se jouent depuis le poste avant chaque déploiement.
 
+## Sondes de santé
+
+| Service | Sonde | Ce qu’elle dit | Ce qu’elle ne dit pas |
+|---|---|---|---|
+| web (`l3fov9fbnjvrgt5ly75b7g5r`) | `GET /health` → `{"service":"tarjih-web","status":"ok"}`, `Cache-Control: no-store` ; `HEALTHCHECK` du `Dockerfile` toutes les 30 s (`wget --spider` sur `127.0.0.1:3000/health`, 20 s de grâce, 3 échecs) ; publique : `https://tarjih-os.com/health` | le processus Next.js répond | rien sur Supabase ni sur le moteur |
+| moteur (`tuxybsaq9adb6txew2rc6zkr`) | `GET /health` → `{"status":"ok","engine_version":"1.1.0"}` ; `HEALTHCHECK` du `Dockerfile` toutes les 30 s (`curl -fsS 127.0.0.1:8000/health`, 15 s de grâce, 3 échecs) ; interne seulement (`http://tarjih-calculation:8000`) | le processus vit, et quelle version du moteur | **volontairement rien sur la clé de service** : un jeton absent ferait redémarrer en boucle un conteneur sain |
+
+Coolify lit ces `HEALTHCHECK` : `healthy` sur les deux conteneurs est la condition de fin d’un déploiement (SOP-014). Vérifié le 14 septembre 2026 : web `200`, moteur `healthy` avec `engine_version` `1.1.0`.
+
 ## Comptes
 
 État relevé en base le 14 septembre 2026.
