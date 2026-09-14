@@ -13,7 +13,7 @@ Total : 10 tâches, environ 32 heures estimées. Les estimations servent au déc
 | 07 | Publier les calculs et la consolidation | P0 | 4 | 05, 06 | ✅ |
 | 08 | Générer les exports soumis au RBAC | P1 | 3 | 07 | ✅ |
 | 09 | Valider le parcours vertical dans le navigateur | P0 | 3 | 07 | ✅ |
-| 10 | Préparer le déploiement preview | P1 | 1 | 08, 09 | ⬜ |
+| 10 | Déploiement Coolify et intégration continue | P1 | 1 | 08, 09 | ✅ |
 
 Légende : ✅ terminée · 🟨 partielle, reste identifié ci-dessous · ⬜ non commencée.
 
@@ -30,7 +30,11 @@ La **08** est close le 2026-09-07 : le filtrage d'export ne repose pas sur la RL
 seul, et la preuve qui compte est la recette navigateur contre la production, pas l'unitaire.
 Elle a d'ailleurs trouvé un classeur vide que dix contrôles verts n'avaient pas vu.
 
-Reste la tâche non commencée : **10** (déploiement preview).
+La **10** est close le 2026-09-14, recadrée d'abord : elle visait un « déploiement preview »
+sur Vercel/Railway, cibles qui n'ont jamais existé — la production est Coolify depuis la
+task 02. Livré : CI à trois jobs (web, moteur, chaîne complète du schéma sur l'image de
+production), sondes de santé documentées, sources de vérité alignées sur la cible réelle.
+Les dix tâches du découpage sont terminées ; la suite vit dans `PASSATION.md` ([ALERTE]).
 
 Rangement : les specs 01 à 05 vivent dans `specs/done/` avec `status: completed` ; les 06, 07,
 08 et 09, terminées elles aussi, sont restées ici avec `status: done`. Le tableau ci-dessus fait

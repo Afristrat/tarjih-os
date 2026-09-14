@@ -77,6 +77,8 @@ Elles sont `security definer`, fixent un `search_path` sûr et utilisent `auth.u
 
 Le rôle ne remplace pas les grants dimensionnels. Un administrateur technique n’obtient pas automatiquement l’accès financier.
 
+L’administration est un drapeau (`is_tenant_admin`) orthogonal au rôle, pas un rôle de plus : un même membre peut être DG **et** administrateur de son tenant — c’est le cas du tenant réel, où le DG administre (décision du 13 septembre 2026). La séparation que la matrice exprime est celle-ci : le pouvoir financier n’emporte pas l’administration, et l’administration n’emporte pas le pouvoir financier ; elle n’interdit pas de détenir les deux.
+
 ## Authentification
 
 - Supabase Auth par e-mail et mot de passe dans la première tranche ;
@@ -166,9 +168,11 @@ Le monorepo sert uniquement à versionner ensemble les contrats et migrations. A
 
 | Environnement | Cible | Données |
 |---|---|---|
-| local | Next.js + Supabase CLI + Python local | fictives uniquement |
-| preview | Vercel + projet Supabase isolé + Railway preview | synthétiques |
-| production | Vercel + Supabase + Railway | tenants réels |
+| poste | gates seulement (`npm run lint/typecheck/test/build`) — jamais de serveur de développement pour valider (SOP-011) ; base de données jetable du cluster réel pour la chaîne du schéma (`npm run test:db`) | aucune ; base vide puis jeu de recette factice |
+| CI | GitHub Actions : mêmes gates, chaîne du schéma sur `supabase/postgres` (image de production) | base vide puis jeu de recette factice |
+| production | Coolify sur `serveuria` : web, moteur, Supabase auto-hébergé | tenants réels **et** deux tenants de recette `e2e00000-…` (synthétiques, jamais un client), joués par Playwright avant chaque déploiement |
+
+Il n’y a pas d’environnement de preview : son rôle (vérifier sur du synthétique avant de toucher au réel) est tenu par la CI pour le schéma et par les tenants de recette pour le produit déployé, isolés par la RLS comme n’importe quel tenant.
 
 ## Pipeline de validation
 
@@ -178,7 +182,7 @@ Le monorepo sert uniquement à versionner ensemble les contrats et migrations. A
 4. build Next.js ;
 5. parcours Playwright contribution–validation–calcul–consolidation ;
 6. tests négatifs inter-tenant et export RBAC ;
-7. déploiement preview avant production.
+7. déploiement Coolify, puis preuve sur le déployé (image taguée du sha, `healthy`, recette rejouée).
 
 ## Index initiaux
 
