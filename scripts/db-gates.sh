@@ -17,17 +17,20 @@
 #            (ex. `docker exec -i <ctr> psql -U postgres -d <base> -v ON_ERROR_STOP=1 -q`)
 #   PGDUMP : écrit le schéma seul sur sa sortie standard
 #            (ex. `docker exec <ctr> pg_dump -U postgres --schema-only <base>`)
+#   PSQL_ADMIN (optionnel) : même chose que PSQL pour le socle seul, quand
+#            `postgres` n'est pas superutilisateur de la base (image de la
+#            plateforme : `-U supabase_admin`). Défaut : PSQL.
 set -euo pipefail
 
 : "${PSQL:?PSQL manquant — commande psql lisant le SQL sur stdin}"
 : "${PGDUMP:?PGDUMP manquant — commande pg_dump --schema-only}"
+PSQL_ADMIN="${PSQL_ADMIN:-$PSQL}"
 
 cd "$(dirname "$0")/.."
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 sql() { eval "$PSQL"; }
-sql_file() { sql < "$1" > /dev/null; }
 # Une migration ou un retour arrière s'applique en UNE transaction : à mi-course,
 # une politique supprimée sans être recréée laisserait une table sans lecture.
 sql_tx() { { echo 'begin;'; cat "$1"; echo 'commit;'; } | sql > /dev/null; }
@@ -37,7 +40,7 @@ scalar() { echo "$1" | brut | tr -d '[:space:]'; }
 dump() { eval "$PGDUMP" | grep -v '^-- Dumped' > "$1"; }
 
 echo "== 1. socle minimal"
-sql_file supabase/testing/minimal_supabase_auth.sql
+eval "$PSQL_ADMIN" < supabase/testing/minimal_supabase_auth.sql > /dev/null
 
 echo "== 2. migrations"
 mapfile -t migrations < <(ls supabase/migrations/*.sql | sort)
