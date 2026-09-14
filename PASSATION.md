@@ -23,8 +23,9 @@
               `supabase/postgres:15.8.1.085` = prod ; et base jetable du cluster réel) ·
               29 Playwright verts contre la prod (4,2 min, rejoués ce jour AVANT le chantier).
   Registre  : 10 migrations, inchangé. Tenant réel : inchangé (DG admin, seul membre).
-  Tasks     : 01→09 ✅ · 10 : critère 1 (CI) ✅, critère 3 (secrets hors dépôt/logs) ✅,
-              critères 2 et 4 ouverts et RECADRÉS dans `specs/todo/10-deploiement-preview.md`.
+  Tasks     : **01→10 ✅ — le découpage est terminé.** La 10 a été recadrée (`9ee47c2`) sur la
+              cible réelle (Coolify, pas Vercel/Railway) puis close : CI, synthétique seulement
+              hors production, secrets hors dépôt, sondes de santé documentées et vérifiées.
 
 [FAIT]
   1. **Audit « rien laissé derrière ? » rejoué par système, pas par mémoire** : tout vert, MAIS
@@ -63,7 +64,14 @@
   5. **Moteur redéployé sur `9abc801`** (`deploy?uuid=tuxybsaq9adb6txew2rc6zkr`, ~3 min) :
      image taguée du sha, `healthy`, puis `e2e/modeles-de-calcul.spec.ts` 12/12 en 2,2 min
      contre la prod — 1 440 000 / 72 000 / 86 400 inchangés. Le web n'a pas bougé (`70066ac`).
-  6. Docs à l'état réel : `docs/deployment-tarjih.md` (section « Gates » neuve ; table
+  6. **Sources de vérité alignées (`9ee47c2`)**, sur demande d'Amine (« le DG est admin ou
+     pas ? il faut s'aligner ; je n'ai ni Vercel ni Railway, pourquoi ça traîne ? ») :
+     `CLAUDE.md`, `specs/_source/stack.md` et `archi.md` ne citent plus Vercel/Railway que
+     comme cadrage jamais mis en service ; « Environnements » = poste / CI / production
+     (pas de preview : la CI et les tenants de recette en tiennent lieu) ; la matrice dit
+     désormais que l'administration est un drapeau orthogonal au rôle et que **le DG du
+     tenant réel administre** (relevé en base : `is_tenant_admin = t`). Task 10 close.
+  7. Docs à l'état réel : `docs/deployment-tarjih.md` (section « Gates » neuve ; table
      « Comptes » relevée en base ce jour — l'ancienne disait `admin.technique` actif et le DG
      non admin), `services/calculation/README.md`, `CLAUDE.md` (commandes), task 10.
 
@@ -86,8 +94,10 @@
   1. **ALERTE 4 — comparer deux versions**, niveau 1 puis 2, geste « approuver l'identique »
      inclus (cadrage inchangé : entrée du 2026-09-13, [NEXT] 1). Avec pgTAP `12_…` : la CI
      le jouera sur base vide dès le push.
-  2. Task 10, critères 2 et 4 : preview (choix d'infra à trancher par Amine : seconde stack
-     Supabase ou tenants de recette en prod) ; health check du moteur à documenter.
+  2. **SOP-029 proposée** (brouillon L99 complet, extraction du chantier) : écrite dans le
+     scratchpad de la session — PAS dans `C:\projets\sop`, dont le worktree était sale (5
+     fichiers modifiés par sa session propriétaire ; règle n°6, SOP-019). **ÉPHÉMÈRE** tant
+     que la session sop ne l'a pas importée : chemin donné dans la réponse du 2026-09-14.
 
 [CTX]
   Session `018JVMAt…` (suite de `532a0472`), 2026-09-13/14. Commits : `33824b8` (gates + CI),
