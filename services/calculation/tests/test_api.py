@@ -72,9 +72,7 @@ class Calculate(unittest.TestCase):
             os.environ["CALCULATION_SERVICE_TOKEN"] = self._ancienne_cle
 
     def test_la_reponse_porte_la_part_de_chaque_hypothese(self) -> None:
-        reponse = self.client.post(
-            "/calculate", json=_snapshot(), headers={"X-Service-Key": CLE}
-        )
+        reponse = self.client.post("/calculate", json=_snapshot(), headers={"X-Service-Key": CLE})
 
         self.assertEqual(reponse.status_code, 200)
         corps = reponse.json()
@@ -83,9 +81,7 @@ class Calculate(unittest.TestCase):
         # Forme canonique : les zéros de fin ne portent pas d'information et
         # deux graphies du même montant doivent donner la même chaîne.
         self.assertEqual(
-            sorted(
-                (source["hypothesis_id"], source["amount"]) for source in corps["sources"]
-            ),
+            sorted((source["hypothesis_id"], source["amount"]) for source in corps["sources"]),
             [(HYP_A, "1000.5"), (HYP_B, "99.5")],
         )
         for source in corps["sources"]:

@@ -1,6 +1,6 @@
 # Déploiement Tarjih
 
-État vérifié le 28 août 2026.
+État vérifié le 14 septembre 2026 (la section « Preuves de fonctionnement » date du 28 août 2026 et est conservée telle quelle).
 
 ## Ressources publiques
 
@@ -54,33 +54,65 @@ L’enveloppe n’est pas une précaution de style. Les migrations d’autorisat
 
 Chaque migration a son retour arrière dans `supabase/rollbacks/`, à appliquer de la même façon. Les deux sont vérifiés par aller-retour contre une copie du schéma de production : après migration puis retour arrière, `pg_dump --schema-only` est identique à l’octet près — même empreinte SHA-256, mêmes 229 905 octets pour `20260809090100` — et les contrôles pgTAP antérieurs repassent sur la base rollbackée (17 pour `20260809090000`, 31 pour `20260809090100`).
 
-## Contrôles pgTAP
+## Gates
 
-52 contrôles, tous au vert, exécutés contre une copie du schéma de production (base jetable dans le même cluster, supprimée après usage) :
+Quatre commandes, à la racine, couvrent les deux piles ; elles sont la seule définition de ce qui doit passer, sur le poste comme en intégration continue :
 
-| Fichier | Contrôles | Objet |
-|---|---:|---|
-| `02_multitenant_rls.test.sql` | 13 | isolation inter-tenant et refus par défaut |
-| `03_schema_invariants.test.sql` | 4 | invariants de schéma |
-| `04_tenant_admin_separation.test.sql` | 14 | séparation administration technique / pouvoir financier |
-| `05_hypothesis_governance.test.sql` | 21 | gouvernance des hypothèses, concurrence, immuabilité d’une version publiée |
+| Commande | Web (`apps/web`) | Moteur (`services/calculation`, `scripts/`) |
+|---|---|---|
+| `npm run lint` | `eslint` | `ruff check` + `ruff format --check` (`ruff.toml`) |
+| `npm run typecheck` | `tsc --noEmit` | `mypy --strict` (`pyproject.toml`, `src`, `tests` et `scripts/`) |
+| `npm test` | `node --test` | `unittest` + `scripts/validate_prompt_artifacts.py` |
+| `npm run build` | `next build` | — |
 
-Les quatre derniers contrôles de la suite 05 tournent **hors RLS**, au plus haut privilège : ils éprouvent ce que les déclencheurs refusent à un chemin qui contournerait les politiques, ce qu’aucun contrôle joué en `authenticated` ne peut atteindre — la RLS filtre alors les lignes avant que le déclencheur n’ait la parole, et l’écriture ne touche rien plutôt que d’être refusée.
+Prérequis Python : `pip install -e "services/calculation[api,dev]"` (versions épinglées dans `pyproject.toml` ; celles de l’image de production pour le moteur, celles du poste pour les outils).
 
-`npm run test:db` reste la voie outillée, mais elle exige Docker sur le poste. À défaut, la copie jetable dans le cluster de production a l’avantage de tester la version exacte de PostgreSQL et le socle Supabase réels.
+`.github/workflows/ci.yml` exécute ces gates à chaque poussée sur `master` et sur chaque pull request, avec les versions de la production (Node 22, Python 3.13), plus la gate de base de données ci-dessous. Une gate rouge sur `master` est un défaut à corriger avant tout autre travail.
+
+### Gate de base de données
+
+`scripts/db-gates.sh` rejoue **toute la chaîne du schéma sur une base vide** : socle minimal (`supabase/testing/minimal_supabase_auth.sql` — rôles, `auth.users`, `auth.identities`, `auth.uid()`, privilèges par défaut et `search_path` tels que la plateforme les livre, tous idempotents), les migrations dans l’ordre et chacune dans sa transaction, le registre, puis :
+
+- le registre recense exactement les fichiers de `supabase/migrations/` ;
+- les contrôles pgTAP (`supabase/tests/`, 140 au 14 septembre 2026) jouent chacun jusqu’à son plan, sans un seul `not ok` ;
+- le jeu de recette `supabase/seed/e2e-recette.sql` s’applique (mots de passe factices) ;
+- les retours arrière (`supabase/rollbacks/`) s’appliquent dans l’ordre inverse, chaque migration après la première ayant le sien, et le schéma revient **à l’octet près** (`pg_dump --schema-only`) à l’état d’après la première migration, registre compris.
+
+Deux façons de la jouer :
+
+- en CI, contre un service `supabase/postgres:15.8.1.085` — l’image exacte de `supabase-db` en production ;
+- depuis le poste, `npm run test:db` (`scripts/db-gates-cluster.sh`) crée une base **jetable** dans le cluster PostgreSQL réel à travers SSH (`TARJIH_SSH` requis), y joue la chaîne et la supprime quoi qu’il arrive. Même version, même socle que la production, sans Docker sur le poste. Vérifié le 14 septembre 2026 : 55 s, aucune base résiduelle.
+
+Les contrôles pgTAP sont aussi rejouables un à un contre la production, en `begin`/`rollback` :
+
+```bash
+cat supabase/tests/11_open_version_from_previous.test.sql | ssh …   'docker exec -i supabase-db-f10v8td71bwii32blb9lalfk psql -U postgres -d postgres    --set=client_encoding=UTF8 -v ON_ERROR_STOP=1 -f -'
+```
+
+Certains contrôles tournent **hors RLS**, au plus haut privilège : ils éprouvent ce que les déclencheurs refusent à un chemin qui contournerait les politiques, ce qu’aucun contrôle joué en `authenticated` ne peut atteindre — la RLS filtre alors les lignes avant que le déclencheur n’ait la parole, et l’écriture ne touche rien plutôt que d’être refusée.
+
+### Recettes navigateur
+
+`npm run test:e2e` joue les recettes Playwright (`apps/web/e2e/`, 29 contrôles) contre `https://tarjih-os.com`, avec les comptes du coffre injectés par le broker de secrets (`invoke-secret.ps1 -TimeoutSec 570`, la suite dure un peu plus de quatre minutes). Elles ne tournent pas en CI : deux exécutions simultanées sur les mêmes tenants de recette se télescoperaient. Elles se jouent depuis le poste avant chaque déploiement.
 
 ## Comptes
 
-| Compte | Rôle | `is_tenant_admin` | État | Ce qu’il voit |
-|---|---|:---:|---|---|
-| `a.mansouri@afriquestrategie.com` | `dg` | non | actif | tout le périmètre financier, par son rôle ; aucune administration |
-| `admin.technique@tarjih-os.com` | `contributor` | oui | actif | administre dimensions, droits et membres ; aucun chiffre |
-| `recette-daf-05@tarjih-os.com` | `daf` | non | **suspendu** | rien : appartenance suspendue |
-| `recette-contrib-05@tarjih-os.com` | `contributor` | non | **suspendu** | rien : appartenance suspendue |
+État relevé en base le 14 septembre 2026.
 
-Le compte administrateur technique existe pour prouver la séparation en conditions réelles : un administrateur sans grant dimensionnel ne lit aucune hypothèse ni aucune valeur budgétaire.
+| Compte | Tenant | Rôle | `is_tenant_admin` | État |
+|---|---|---|:---:|---|
+| `a.mansouri@afriquestrategie.com` | Afrique Stratégie | `dg` | oui | actif — seul membre du tenant réel, qu’il administre (décision du 13 septembre 2026) |
+| `e2e-contributeur@tarjih-os.com` | Recette e2e | `contributor` | non | actif — recette |
+| `e2e-daf@tarjih-os.com` | Recette e2e | `daf` | non | actif — recette |
+| `e2e-dg@tarjih-os.com` | Recette e2e | `dg` | non | actif — recette |
+| `e2e-intrus@tarjih-os.com` | Recette e2e — tiers | `daf` | non | actif — contrôle négatif d’isolation |
+| `admin.technique@tarjih-os.com` | — | — | — | **banni** (`banned_until = infinity`), plus membre d’aucun tenant |
+| `recette-daf-05@tarjih-os.com` | — | — | — | **banni**, plus membre d’aucun tenant |
+| `recette-contrib-05@tarjih-os.com` | — | — | — | **banni**, plus membre d’aucun tenant |
 
-Les deux comptes `recette-*` ont servi la recette de la task 05 puis ont été rendus inertes — appartenance suspendue, mot de passe remplacé par une valeur que personne ne connaît. **Ils ne peuvent pas être supprimés** : la décision qu’ils ont produite est append-only, l’hypothèse est retenue par cette décision, et l’hypothèse retient son auteur. Les effacer exigerait de désactiver la garantie d’audit que la task 05 apporte ; le cycle a donc été clos plutôt qu’effacé. C’est le comportement voulu, pas un reliquat.
+Les trois comptes bannis ont écrit dans un système à ajout seul (une hypothèse, une décision) : ils **ne peuvent pas être supprimés** sans effacer la provenance de ce qu’ils ont produit. Ils restent en base, fermés.
+
+Les comptes de recette sont posés par `supabase/seed/e2e-recette.sql` (réexécutable, mots de passe remplacés à l’exécution depuis le coffre, jamais dans le dépôt).
 
 **Créer un compte directement en SQL exige de renseigner `confirmation_token`, `recovery_token`, `email_change_token_new` et `email_change` à la chaîne vide.** GoTrue les lit dans des chaînes Go non nullables : laissées à `NULL`, l’authentification échoue en `500 Database error querying schema` et l’interface n’affiche qu’un banal « identifiants incorrects ».
 

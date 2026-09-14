@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+import jsonschema
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,18 +60,13 @@ def validate_schemas() -> None:
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
         assert schema["additionalProperties"] is False
 
-    try:
-        import jsonschema
-    except ImportError:
-        return
-
     for path in schema_paths:
-        jsonschema.Draft202012Validator.check_schema(
-            json.loads(path.read_text(encoding="utf-8"))
-        )
+        jsonschema.Draft202012Validator.check_schema(json.loads(path.read_text(encoding="utf-8")))
 
     mission_schema = load_json("schemas/mission-contract.schema.json")
+    assert isinstance(mission_schema, dict)
     catalog = load_json("prompts/missions/catalog.json")
+    assert isinstance(catalog, dict)
     validator = jsonschema.Draft202012Validator(mission_schema)
     for mission in catalog["missions"]:
         validator.validate(mission)
@@ -89,6 +85,7 @@ def validate_runtime() -> None:
         assert phrase in system_prompt
 
     golden_set = load_json("evals/runtime-golden-set.json")
+    assert isinstance(golden_set, dict)
     cases = golden_set["cases"]
     assert len(cases) >= 10
     assert sum(case["type"] == "adversarial" for case in cases) >= 4
