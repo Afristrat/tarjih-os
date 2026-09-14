@@ -87,5 +87,6 @@ jobs:
       - name: Rejouer la chaîne du schéma sur une base vide
         env:
           PSQL: docker exec -i ${{ job.services.postgres.id }} psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q
+          PSQL_ADMIN: docker exec -i ${{ job.services.postgres.id }} psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -q
           PGDUMP: docker exec ${{ job.services.postgres.id }} pg_dump -U postgres --schema-only postgres
         run: bash scripts/db-gates.sh

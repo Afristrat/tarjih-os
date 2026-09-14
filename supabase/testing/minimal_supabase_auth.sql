@@ -4,7 +4,9 @@
 -- touchent, et `auth.uid()`. Tout est idempotent (`if not exists`) : sur une
 -- base qui porte déjà le vrai socle (image `supabase/postgres`, production), le
 -- fichier ne remplace rien — en particulier pas `auth.uid()`, dont la version de
--- la plateforme reste celle qui est éprouvée.
+-- la plateforme reste celle qui est éprouvée. Sur l'image de la plateforme, le
+-- schéma `auth` n'appartient pas à `postgres` : jouer ce fichier en
+-- `supabase_admin` (cf. `scripts/db-gates.sh`, `PSQL_ADMIN`).
 
 set client_min_messages = warning;
 
@@ -92,6 +94,23 @@ create table if not exists auth.identities (
   email text,
   unique (provider_id, provider)
 );
+
+-- En production ces deux tables appartiennent à `supabase_auth_admin` (GoTrue
+-- les crée) et `postgres` — qui n'y est PAS superutilisateur — y reçoit tous
+-- les privilèges. Reproduit quand le rôle existe et que l'exécutant peut le
+-- faire (image de la plateforme, socle joué par `supabase_admin`) ; sur une base
+-- jetable d'un cluster réel créée par `postgres`, qui n'est pas membre du rôle,
+-- `postgres` reste propriétaire — sans effet sur ce que la chaîne éprouve.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'supabase_auth_admin')
+     and pg_has_role('supabase_auth_admin', 'member') then
+    alter table auth.users owner to supabase_auth_admin;
+    alter table auth.identities owner to supabase_auth_admin;
+  end if;
+end
+$$;
+grant all on auth.users, auth.identities to postgres;
 
 do $$
 begin
