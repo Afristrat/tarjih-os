@@ -69,6 +69,21 @@ create table if not exists auth.users (
   is_super_admin boolean
 );
 
+-- Sur l'image de la plateforme, `auth.users` existe déjà dans sa forme
+-- d'origine, antérieure aux migrations de GoTrue (pas de `email_confirmed_at`,
+-- par exemple) : le `create table if not exists` n'a rien fait, et chaque
+-- colonne attendue se pose une à une.
+alter table auth.users add column if not exists instance_id uuid;
+alter table auth.users add column if not exists aud text;
+alter table auth.users add column if not exists role text;
+alter table auth.users add column if not exists email text;
+alter table auth.users add column if not exists encrypted_password text;
+alter table auth.users add column if not exists email_confirmed_at timestamptz;
+alter table auth.users add column if not exists created_at timestamptz;
+alter table auth.users add column if not exists updated_at timestamptz;
+alter table auth.users add column if not exists raw_app_meta_data jsonb;
+alter table auth.users add column if not exists raw_user_meta_data jsonb;
+alter table auth.users add column if not exists is_super_admin boolean;
 -- Colonnes que GoTrue lit dans des chaînes Go non nullables ; le jeu de recette
 -- les pose à la chaîne vide (cf. `docs/deployment-tarjih.md`, « Comptes »).
 alter table auth.users add column if not exists confirmation_token text;
