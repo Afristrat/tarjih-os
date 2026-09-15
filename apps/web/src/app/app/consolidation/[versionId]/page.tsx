@@ -249,107 +249,6 @@ export default async function ConsolidationPage({
       .order("version_no", { ascending: true }),
   ]);
 
-  // La version de base : celle demandée par `?with=`, sinon celle dont cette
-  // version descend, sinon la précédente par numéro (les versions ouvertes
-  // avant la reprise n'ont pas de filiation écrite). Une base demandée qui
-  // n'est pas une version du cycle est refusée, pas devinée.
-  const siblings: ComparedVersion[] = [];
-  for (const row of siblingsResult.data ?? []) {
-    if (
-      isRecord(row) &&
-      typeof row.id === "string" &&
-      typeof row.version_no === "number" &&
-      typeof row.status === "string"
-    ) {
-      siblings.push({
-        id: row.id,
-        inputHash: typeof row.input_hash === "string" ? row.input_hash : null,
-        status: row.status,
-        versionNo: row.version_no,
-      });
-    }
-  }
-
-  const requestedBase = single(query.with);
-  const defaultBase =
-    siblings.find((sibling) => sibling.id === version.parent_version_id) ??
-    [...siblings].reverse().find((sibling) => sibling.versionNo < version.version_no) ??
-    null;
-  const base = requestedBase
-    ? (siblings.find((sibling) => sibling.id === requestedBase) ?? null)
-    : defaultBase;
-  const notice =
-    requestedBase && !base
-      ? noticeFrom({ error: "compare-unknown" })
-      : noticeFrom(query);
-  const comparedBase = base ?? defaultBase;
-
-  const target: ComparedVersion = {
-    id: version.id,
-    inputHash: version.input_hash,
-    status: version.status,
-    versionNo: version.version_no,
-  };
-
-  // Les deux niveaux viennent de la base, sous le périmètre du lecteur. Le
-  // second n'a de sens qu'entre deux versions publiées ; la fonction le refuse
-  // aussi, on ne l'appelle pas pour rien.
-  const hypothesisComparison: HypothesisComparison[] = [];
-  let valueComparison: ValueComparison[] | null = null;
-  if (comparedBase) {
-    const bothPublished = comparedBase.status === "published" && version.status === "published";
-    const [rawHypotheses, rawValues] = await Promise.all([
-      supabase.rpc("compare_version_hypotheses", {
-        base_version_id: comparedBase.id,
-        target_version_id: version.id,
-      }),
-      bothPublished
-        ? supabase.rpc("compare_version_values", {
-            base_version_id: comparedBase.id,
-            target_version_id: version.id,
-          })
-        : Promise.resolve({ data: null }),
-    ]);
-
-    for (const row of rawHypotheses.data ?? []) {
-      const comparison = asHypothesisComparison(row);
-      if (comparison) {
-        hypothesisComparison.push(comparison);
-      }
-    }
-
-    if (bothPublished) {
-      valueComparison = [];
-      for (const row of rawValues.data ?? []) {
-        const comparison = asValueComparison(row);
-        if (comparison) {
-          valueComparison.push(comparison);
-        }
-      }
-    }
-
-    // Même ordre de lecture que le tableau des montants : la base trie par
-    // identifiant, ce qui n'est l'ordre de personne.
-    const parDimension = (left: string, right: string): number =>
-      (dimensionNames.get(left) ?? "").localeCompare(dimensionNames.get(right) ?? "", "fr");
-    hypothesisComparison.sort(
-      (left, right) =>
-        parDimension(left.dimensionId, right.dimensionId) ||
-        left.parameterKey.localeCompare(right.parameterKey, "fr"),
-    );
-    valueComparison?.sort(
-      (left, right) =>
-        parDimension(left.dimensionId, right.dimensionId) ||
-        (accountCodes.get(left.accountId) ?? "").localeCompare(
-          accountCodes.get(right.accountId) ?? "",
-          "fr",
-        ) ||
-        (periodStarts.get(left.periodId) ?? "").localeCompare(
-          periodStarts.get(right.periodId) ?? "",
-        ),
-    );
-  }
-
   const dimensionNames = new Map<string, string>();
   for (const row of dimensions.data ?? []) {
     if (isRecord(row) && typeof row.id === "string" && typeof row.name === "string") {
@@ -522,6 +421,107 @@ export default async function ConsolidationPage({
       ? subtractAmounts(totalProduits, totalCharges)
       : null;
   const currency = publishedValues[0]?.currency ?? context.baseCurrency;
+
+  // La version de base : celle demandée par `?with=`, sinon celle dont cette
+  // version descend, sinon la précédente par numéro (les versions ouvertes
+  // avant la reprise n'ont pas de filiation écrite). Une base demandée qui
+  // n'est pas une version du cycle est refusée, pas devinée.
+  const siblings: ComparedVersion[] = [];
+  for (const row of siblingsResult.data ?? []) {
+    if (
+      isRecord(row) &&
+      typeof row.id === "string" &&
+      typeof row.version_no === "number" &&
+      typeof row.status === "string"
+    ) {
+      siblings.push({
+        id: row.id,
+        inputHash: typeof row.input_hash === "string" ? row.input_hash : null,
+        status: row.status,
+        versionNo: row.version_no,
+      });
+    }
+  }
+
+  const requestedBase = single(query.with);
+  const defaultBase =
+    siblings.find((sibling) => sibling.id === version.parent_version_id) ??
+    [...siblings].reverse().find((sibling) => sibling.versionNo < version.version_no) ??
+    null;
+  const base = requestedBase
+    ? (siblings.find((sibling) => sibling.id === requestedBase) ?? null)
+    : defaultBase;
+  const notice =
+    requestedBase && !base
+      ? noticeFrom({ error: "compare-unknown" })
+      : noticeFrom(query);
+  const comparedBase = base ?? defaultBase;
+
+  const target: ComparedVersion = {
+    id: version.id,
+    inputHash: version.input_hash,
+    status: version.status,
+    versionNo: version.version_no,
+  };
+
+  // Les deux niveaux viennent de la base, sous le périmètre du lecteur. Le
+  // second n'a de sens qu'entre deux versions publiées ; la fonction le refuse
+  // aussi, on ne l'appelle pas pour rien.
+  const hypothesisComparison: HypothesisComparison[] = [];
+  let valueComparison: ValueComparison[] | null = null;
+  if (comparedBase) {
+    const bothPublished = comparedBase.status === "published" && version.status === "published";
+    const [rawHypotheses, rawValues] = await Promise.all([
+      supabase.rpc("compare_version_hypotheses", {
+        base_version_id: comparedBase.id,
+        target_version_id: version.id,
+      }),
+      bothPublished
+        ? supabase.rpc("compare_version_values", {
+            base_version_id: comparedBase.id,
+            target_version_id: version.id,
+          })
+        : Promise.resolve({ data: null }),
+    ]);
+
+    for (const row of rawHypotheses.data ?? []) {
+      const comparison = asHypothesisComparison(row);
+      if (comparison) {
+        hypothesisComparison.push(comparison);
+      }
+    }
+
+    if (bothPublished) {
+      valueComparison = [];
+      for (const row of rawValues.data ?? []) {
+        const comparison = asValueComparison(row);
+        if (comparison) {
+          valueComparison.push(comparison);
+        }
+      }
+    }
+
+    // Même ordre de lecture que le tableau des montants : la base trie par
+    // identifiant, ce qui n'est l'ordre de personne.
+    const parDimension = (left: string, right: string): number =>
+      (dimensionNames.get(left) ?? "").localeCompare(dimensionNames.get(right) ?? "", "fr");
+    hypothesisComparison.sort(
+      (left, right) =>
+        parDimension(left.dimensionId, right.dimensionId) ||
+        left.parameterKey.localeCompare(right.parameterKey, "fr"),
+    );
+    valueComparison?.sort(
+      (left, right) =>
+        parDimension(left.dimensionId, right.dimensionId) ||
+        (accountCodes.get(left.accountId) ?? "").localeCompare(
+          accountCodes.get(right.accountId) ?? "",
+          "fr",
+        ) ||
+        (periodStarts.get(left.periodId) ?? "").localeCompare(
+          periodStarts.get(right.periodId) ?? "",
+        ),
+    );
+  }
 
   return (
     <main className="console">
