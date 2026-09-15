@@ -3,9 +3,17 @@ import { redirect } from "next/navigation";
 import type { ReactElement } from "react";
 
 import { publishCalculation } from "@/app/app/consolidation/[versionId]/actions";
+import { Ecart } from "@/app/app/consolidation/[versionId]/ecart";
 import { requireActiveTenant } from "@/lib/auth/session";
 import { canManageFinance } from "@/lib/authorization/capabilities";
-import { noticeFrom } from "@/lib/budgets/notices";
+import {
+  asHypothesisComparison,
+  asValueComparison,
+  type ComparedVersion,
+  type HypothesisComparison,
+  type ValueComparison,
+} from "@/lib/budgets/comparison";
+import { noticeFrom, single } from "@/lib/budgets/notices";
 import {
   calculationModelLabel,
   versionStatusLabel,
@@ -19,9 +27,11 @@ type RouteParams = Promise<{ versionId: string }>;
 
 type VersionRow = {
   calculation_model: string;
+  cycle_id: string;
   id: string;
   input_hash: string | null;
   is_superseded: boolean;
+  parent_version_id: string | null;
   published_at: string | null;
   status: string;
   version_no: number;
@@ -60,6 +70,7 @@ function asVersion(value: unknown): VersionRow | null {
     typeof value.id !== "string" ||
     typeof value.status !== "string" ||
     typeof value.calculation_model !== "string" ||
+    typeof value.cycle_id !== "string" ||
     typeof value.version_no !== "number" ||
     typeof value.is_superseded !== "boolean"
   ) {
@@ -68,9 +79,12 @@ function asVersion(value: unknown): VersionRow | null {
 
   return {
     calculation_model: value.calculation_model,
+    cycle_id: value.cycle_id,
     id: value.id,
     input_hash: typeof value.input_hash === "string" ? value.input_hash : null,
     is_superseded: value.is_superseded,
+    parent_version_id:
+      typeof value.parent_version_id === "string" ? value.parent_version_id : null,
     published_at: typeof value.published_at === "string" ? value.published_at : null,
     status: value.status,
     version_no: value.version_no,
@@ -185,12 +199,14 @@ export default async function ConsolidationPage({
   }
 
   const { versionId } = await params;
-  const notice = noticeFrom(await searchParams);
+  const query = await searchParams;
   const supabase = await createClient();
 
   const { data: rawVersion } = await supabase
     .from("budget_version_states")
-    .select("id, version_no, status, calculation_model, input_hash, published_at, is_superseded")
+    .select(
+      "id, cycle_id, version_no, status, calculation_model, input_hash, published_at, is_superseded, parent_version_id",
+    )
     .eq("id", versionId)
     .eq("tenant_id", context.tenantId)
     .maybeSingle();
@@ -200,7 +216,7 @@ export default async function ConsolidationPage({
     redirect("/app/budgets?error=calculation-forbidden");
   }
 
-  const [values, runs, dimensions, accounts, periods] = await Promise.all([
+  const [values, runs, dimensions, accounts, periods, siblingsResult] = await Promise.all([
     supabase
       .from("budget_values")
       .select("id, dimension_id, account_id, period_id, amount, currency")
@@ -223,7 +239,116 @@ export default async function ConsolidationPage({
       .select("id, code, name, normal_balance")
       .eq("tenant_id", context.tenantId),
     supabase.from("periods").select("id, starts_on, ends_on").eq("tenant_id", context.tenantId),
+    // Les autres versions du cycle : avec quoi cette version peut se comparer.
+    supabase
+      .from("budget_version_states")
+      .select("id, version_no, status, input_hash")
+      .eq("tenant_id", context.tenantId)
+      .eq("cycle_id", version.cycle_id)
+      .neq("id", version.id)
+      .order("version_no", { ascending: true }),
   ]);
+
+  // La version de base : celle demandée par `?with=`, sinon celle dont cette
+  // version descend, sinon la précédente par numéro (les versions ouvertes
+  // avant la reprise n'ont pas de filiation écrite). Une base demandée qui
+  // n'est pas une version du cycle est refusée, pas devinée.
+  const siblings: ComparedVersion[] = [];
+  for (const row of siblingsResult.data ?? []) {
+    if (
+      isRecord(row) &&
+      typeof row.id === "string" &&
+      typeof row.version_no === "number" &&
+      typeof row.status === "string"
+    ) {
+      siblings.push({
+        id: row.id,
+        inputHash: typeof row.input_hash === "string" ? row.input_hash : null,
+        status: row.status,
+        versionNo: row.version_no,
+      });
+    }
+  }
+
+  const requestedBase = single(query.with);
+  const defaultBase =
+    siblings.find((sibling) => sibling.id === version.parent_version_id) ??
+    [...siblings].reverse().find((sibling) => sibling.versionNo < version.version_no) ??
+    null;
+  const base = requestedBase
+    ? (siblings.find((sibling) => sibling.id === requestedBase) ?? null)
+    : defaultBase;
+  const notice =
+    requestedBase && !base
+      ? noticeFrom({ error: "compare-unknown" })
+      : noticeFrom(query);
+  const comparedBase = base ?? defaultBase;
+
+  const target: ComparedVersion = {
+    id: version.id,
+    inputHash: version.input_hash,
+    status: version.status,
+    versionNo: version.version_no,
+  };
+
+  // Les deux niveaux viennent de la base, sous le périmètre du lecteur. Le
+  // second n'a de sens qu'entre deux versions publiées ; la fonction le refuse
+  // aussi, on ne l'appelle pas pour rien.
+  const hypothesisComparison: HypothesisComparison[] = [];
+  let valueComparison: ValueComparison[] | null = null;
+  if (comparedBase) {
+    const bothPublished = comparedBase.status === "published" && version.status === "published";
+    const [rawHypotheses, rawValues] = await Promise.all([
+      supabase.rpc("compare_version_hypotheses", {
+        base_version_id: comparedBase.id,
+        target_version_id: version.id,
+      }),
+      bothPublished
+        ? supabase.rpc("compare_version_values", {
+            base_version_id: comparedBase.id,
+            target_version_id: version.id,
+          })
+        : Promise.resolve({ data: null }),
+    ]);
+
+    for (const row of rawHypotheses.data ?? []) {
+      const comparison = asHypothesisComparison(row);
+      if (comparison) {
+        hypothesisComparison.push(comparison);
+      }
+    }
+
+    if (bothPublished) {
+      valueComparison = [];
+      for (const row of rawValues.data ?? []) {
+        const comparison = asValueComparison(row);
+        if (comparison) {
+          valueComparison.push(comparison);
+        }
+      }
+    }
+
+    // Même ordre de lecture que le tableau des montants : la base trie par
+    // identifiant, ce qui n'est l'ordre de personne.
+    const parDimension = (left: string, right: string): number =>
+      (dimensionNames.get(left) ?? "").localeCompare(dimensionNames.get(right) ?? "", "fr");
+    hypothesisComparison.sort(
+      (left, right) =>
+        parDimension(left.dimensionId, right.dimensionId) ||
+        left.parameterKey.localeCompare(right.parameterKey, "fr"),
+    );
+    valueComparison?.sort(
+      (left, right) =>
+        parDimension(left.dimensionId, right.dimensionId) ||
+        (accountCodes.get(left.accountId) ?? "").localeCompare(
+          accountCodes.get(right.accountId) ?? "",
+          "fr",
+        ) ||
+        (periodStarts.get(left.periodId) ?? "").localeCompare(
+          periodStarts.get(right.periodId) ?? "",
+        ),
+    );
+  }
 
   const dimensionNames = new Map<string, string>();
   for (const row of dimensions.data ?? []) {
@@ -539,6 +664,18 @@ export default async function ConsolidationPage({
           </p>
         )}
       </div>
+
+      {comparedBase ? (
+        <Ecart
+          base={comparedBase}
+          currency={currency}
+          hypotheses={hypothesisComparison}
+          labels={{ accountBalances, accountLabels, dimensionNames, periodLabels }}
+          siblings={siblings}
+          target={target}
+          values={valueComparison}
+        />
+      ) : null}
     </main>
   );
 }

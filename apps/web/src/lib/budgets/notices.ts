@@ -68,6 +68,23 @@ const BUDGET_NOTICES: Record<string, Notice> = {
     text: "Le calcul a abouti mais la publication a échoué. Rien n’a été écrit : l’opération est atomique.",
     tone: "refus",
   },
+  // Comparaison de deux versions et geste « approuver l'identique ».
+  "compare-unknown": {
+    text: "La version demandée pour la comparaison n’existe pas dans ce cycle. L’écart affiché est celui avec la version d’origine.",
+    tone: "refus",
+  },
+  "identical-approved": {
+    text: "Lignes identiques approuvées : une décision par ligne, en votre nom, inscrite définitivement. Les autres attendent toujours une décision.",
+    tone: "fait",
+  },
+  "identical-none": {
+    text: "Aucune ligne à approuver : rien n’est à la fois identique à une hypothèse approuvée de la version de base, encore proposé, et dans votre périmètre d’approbation.",
+    tone: "refus",
+  },
+  "identical-failed": {
+    text: "Aucune ligne n’a été approuvée : le lot est atomique, un refus sur une ligne annule tout.",
+    tone: "refus",
+  },
 };
 
 export function single(value: string | string[] | undefined): string | undefined {

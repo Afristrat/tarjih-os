@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireActiveTenant } from "@/lib/auth/session";
 import { canManageFinance } from "@/lib/authorization/capabilities";
+import { decisionNoticeFor } from "@/lib/budgets/scope";
 import { requestCalculation } from "@/lib/calculation/client";
 import { buildSnapshot, isSnapshotFailure } from "@/lib/calculation/snapshot";
 import { requiredText } from "@/lib/forms/values";
@@ -94,4 +95,56 @@ export async function publishCalculation(formData: FormData): Promise<never> {
   revalidatePath(target);
   revalidatePath("/app/budgets");
   redirect(`${target}?success=calculation-published`);
+}
+
+/**
+ * Approuve, dans cette version, chaque proposition identique à une hypothèse
+ * approuvée de la version de base.
+ *
+ * Tout l'arbitrage est dans `public.approve_identical_hypotheses` : les deux
+ * versions, l'état de la cible, le périmètre d'approbation ligne par ligne, et
+ * une décision par ligne via `decide_hypothesis`, dans une transaction. Cet
+ * appel refuse un visiteur non autorisé avant la requête et traduit le résultat.
+ */
+export async function approveIdentical(formData: FormData): Promise<never> {
+  const context = await requireActiveTenant();
+  const versionId = requiredText(formData, "version_id", 64);
+  const baseVersionId = requiredText(formData, "base_version_id", 64);
+  const reason = requiredText(formData, "reason", 500);
+
+  if (!versionId) {
+    redirect("/app/budgets?error=calculation-forbidden");
+  }
+
+  // Le retour garde la version comparée : l'écran se rouvre sur le même écart.
+  function back(outcome: "error" | "success", notice: string): never {
+    const query = new URLSearchParams({ [outcome]: notice });
+    if (baseVersionId) {
+      query.set("with", baseVersionId);
+    }
+    redirect(`/app/consolidation/${versionId}?${query.toString()}`);
+  }
+
+  if (!canManageFinance(context)) {
+    back("error", "calculation-forbidden");
+  }
+
+  if (!baseVersionId || !reason) {
+    back("error", "decision-invalid");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("approve_identical_hypotheses", {
+    base_version_id: baseVersionId,
+    decision_reason: reason,
+    target_version_id: versionId,
+  });
+
+  if (error) {
+    const notice = decisionNoticeFor(error.code);
+    back("error", notice === "decision-failed" ? "identical-failed" : notice);
+  }
+
+  revalidatePath(`/app/consolidation/${versionId}`);
+  back("success", typeof data === "number" && data > 0 ? "identical-approved" : "identical-none");
 }

@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fromMicros, subtractAmounts, sumAmounts, toMicros } from "../src/lib/budgets/amounts.ts";
+import { fromMicros, percentChange, subtractAmounts, sumAmounts, toMicros } from "../src/lib/budgets/amounts.ts";
 
 test("un montant fait l'aller-retour sans rien perdre", () => {
   for (const montant of ["0.000000", "1234.560000", "-90000.000000", "10.005000", "0.000001"]) {
@@ -58,4 +58,23 @@ test("un montant illisible ne vaut pas zéro", () => {
 test("un résultat négatif reste lisible", () => {
   assert.equal(subtractAmounts("100.000000", "250.500000"), "-150.500000");
   assert.equal(sumAmounts(["-0.500000", "0.250000"]), "-0.250000");
+});
+
+test("une variation se calcule sans flottant et se dit à une décimale", () => {
+  // La dégradation mesurée le 2026-09-08 : un résultat de 1 365 000 tombé de
+  // 1 890 000, soit −27,8 % — quand le total en `Number` affichait −8,7 %.
+  assert.equal(percentChange("1890000.000000", "1365000.000000"), "-27.8");
+  assert.equal(percentChange("1440000.000000", "1040000.000000"), "-27.8");
+  assert.equal(percentChange("100.000000", "100.000000"), "0.0");
+  assert.equal(percentChange("100.000000", "150.000000"), "50.0");
+  assert.equal(percentChange("200.000000", "201.000000"), "0.5");
+  assert.equal(percentChange("3.000000", "4.000000"), "33.3", "arrondi au plus proche");
+  assert.equal(percentChange("3.000000", "2.000000"), "-33.3");
+  assert.equal(percentChange("1000.000000", "999.960000"), "0.0", "un écart sous la décimale ne s'invente ni chiffre ni signe");
+});
+
+test("une variation sans base ne se calcule pas", () => {
+  assert.equal(percentChange("0.000000", "10.000000"), null, "rapport à zéro");
+  assert.equal(percentChange("oups", "10.000000"), null);
+  assert.equal(percentChange("10.000000", ""), null);
 });

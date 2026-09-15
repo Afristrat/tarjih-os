@@ -1062,3 +1062,43 @@ h2 {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Écart entre deux versions : deux niveaux, hypothèses puis montants. Les
+   termes d'une hypothèse (320 × 4500) se lisent comme du chiffre, pas comme
+   du texte ; une ligne retirée se voit à sa teinte, sans qu'on la cherche. */
+.ecart-level {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 28px 0 8px;
+  text-transform: uppercase;
+}
+
+.ecart-summary {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin: 0 0 12px;
+}
+
+.ecart-terms {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ecart-absent {
+  color: var(--muted);
+}
+
+.ecart-table tr[data-outcome="removed"] td {
+  color: var(--muted);
+}
+
+.ecart-table tr[data-outcome="changed"] td {
+  font-weight: 600;
+}
+
+.ecart-approve {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 16px;
+}
