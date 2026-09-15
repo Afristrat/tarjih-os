@@ -4,22 +4,21 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
-## 2026-09-15 — ALERTE 4 livrée en base et en écran : comparer deux versions, approuver l'identique d'un geste — recette à REJOUER sur le dernier correctif
+## 2026-09-15/16 — ALERTE 4 FERMÉE et prouvée dans un navigateur : comparer deux versions, approuver l'identique d'un geste
 
 ```
 [ETAT]
-  Repo      : `HEAD` == `origin/master` == **`929adbd`**, worktree PROPRE.
-  Prod      : `tarjih-web` sur **`34a190a`** (`healthy`) — **`929adbd` PAS ENCORE DÉPLOYÉ** (correctif
-              CSS d'une ligne, commité et poussé). `tarjih-calculation` sur `9abc801` (inchangé).
+  Repo      : `HEAD` == `origin/master` == **`dd49056`** (+ entrée documentaire), worktree PROPRE.
+  Prod      : `tarjih-web` sur **`dd49056`** (`healthy`) · `tarjih-calculation` sur `9abc801`.
   Base prod : **migration `20260915090000 compare_two_versions` APPLIQUÉE** (rollback éprouvé en
               transaction annulée avant, `-1`), 11 migrations au registre, **162 pgTAP verts contre
               la production** (12 fichiers, dont `12_compare_two_versions` 22/22).
-  CI        : verte sur `34a190a` (base vide : 11 migrations, 162 contrôles, 10 rollbacks, schéma
-              identique à l'octet) ; en cours/à vérifier sur `929adbd` (`gh run list --limit 1`).
+  CI        : verte (base vide : 11 migrations, 162 contrôles, 10 rollbacks, schéma identique à
+              l'octet) ; à confirmer sur `dd49056` (`gh run list --limit 1`).
   Gates     : typecheck 0 · lint 0 (+ règle `no-use-before-define` activée) · **83 Node** · 43 Python
-              · build OK · Playwright : **28/30 sur `34a190a`** — le pas « écart » rouge (cause
-              trouvée et corrigée dans `929adbd`, non rejouée), 1 pas non joué derrière lui.
-  Tasks     : 01→10 ✅. ALERTE 4 : code livré, preuve navigateur INCOMPLÈTE (voir [NEXT] 1).
+              · build OK · **Playwright 30/30 contre `https://tarjih-os.com` sur `dd49056`**
+              (4 recettes, 4,6 min).
+  Tasks     : 01→10 ✅. **ALERTE 4 fermée.**
 
 [FAIT]
   1. **Migration `20260915090000_compare_two_versions` (`5feca66`)** — trois fonctions :
@@ -64,6 +63,11 @@
        tout formulaire enfant d'un panneau. Présent dans le HTML servi, invisible dans le DOM,
        introuvable par Playwright (`box: null`). Règle restreinte à `form[id^="grant-"]`.
        Diagnostiqué par une sonde Playwright jetable (supprimée) : `isVisible()` + `getComputedStyle`.
+     · `dd49056` — `montantPublie()` cherchait « la ligne du compte » sur toute la page (l'Écart
+       la cite deux fois) : recentré sur `.data-table:not(.ecart-table)` ; et la variation
+       arrivait « 20 % » au lieu de « 20,0 % » : **PostgREST sérialise `numeric` en nombre
+       JSON** (`20.0` → `20`), `formatPercent` garantit la décimale lui-même.
+       Passages : 28/30 → 29/30 (geste vert) → **30/30**.
   4. Recette `modeles-de-calcul` étendue : pas « le DAF lit l'écart avec la version 1 et approuve
      d'un geste » (synthèse « 1 identique · 1 modifiée », termes des deux taux, geste → ligne
      approuvée dans CETTE version, modifiée toujours proposée, bouton disparu) ; pas final : niveau
@@ -75,8 +79,10 @@
      Supabase et tunnel étaient sains (`lawh.ma` 200 au même instant). Non conclu (SOP-007).
 
 [ALERTE]
-  1. **`929adbd` non déployé, recette non rejouée** : ALERTE 4 n'est PAS prouvée dans un
-     navigateur tant que `modeles-de-calcul` (30/30) n'est pas verte sur le déployé.
+  1. **`numeric` traverse PostgREST en nombre JSON** : tout `String(row.amount)` du web repose
+     sur la précision double (~9·10¹⁵) — vrai depuis l'origine pour `budget_values.amount`, pas
+     seulement pour la variation. Sans conséquence mesurée aujourd'hui (montants < 10¹²) ; à
+     traiter si un montant dépasse 15 chiffres significatifs (cast `::text` côté SQL).
   2. Frottement « approuver l'identique » : FERMÉ par le geste (ALERTE 2 close intégralement).
   3. `TARJIH_ADMIN_TECHNIQUE` toujours au coffre (clé d'un compte banni) — attend un « oui ».
   4. **SOP-029 est prise** (délégation inversée, brouillon, session sop) : le brouillon de la
@@ -90,16 +96,14 @@
      (fichier toujours présent) — à réindexer.
 
 [NEXT]
-  1. **Déployer `929adbd`** (`deploy?uuid=l3fov9fbnjvrgt5ly75b7g5r`), attendre `healthy` sur le
-     sha, **rejouer les 4 recettes** (`-TimeoutSec 570`, broker) → 30/30 attendus. Si le pas
-     « écart » rougit encore : lire `error-context.md` + `trace.zip` AVANT `rm -rf test-results`.
-  2. Passation de clôture d'ALERTE 4 + `store_memory` Mnemo (cercle `PASSATION Tarjih`).
-  3. Ensuite : ALERTE 5 (proposition du 13/09 : rendre visible « décidée par son auteur »
+  1. `store_memory` Mnemo (cercle `PASSATION Tarjih`) — non fait cette session (serveur MCP
+     en délai d'attente au démarrage).
+  2. ALERTE 5 (proposition du 13/09 : rendre visible « décidée par son auteur »
      plutôt qu'interdire — tenant réel à UN membre), puis 8/9/10 sur besoin mesuré.
 
 [CTX]
-  Session `018JVMAt…`, 2026-09-15. Commits : `5feca66` (ALERTE 4), `1cca2a8`, `34a190a`,
-  `929adbd`. Fichiers neufs : `supabase/migrations/20260915090000_compare_two_versions.sql` (+
+  Session `018JVMAt…`, 2026-09-15/16. Commits : `5feca66` (ALERTE 4), `1cca2a8`, `34a190a`,
+  `929adbd`, `dd49056`. Fichiers neufs : `supabase/migrations/20260915090000_compare_two_versions.sql` (+
   rollback + `tests/12_…`), `apps/web/src/app/app/consolidation/[versionId]/ecart.tsx`,
   `apps/web/src/lib/budgets/comparison.ts`, `apps/web/tests/ecart.test.ts`.
   Versions de recette du jour (tenant e2e, cycle « Modèles 1789506516208 ») : v1 driver publiée
