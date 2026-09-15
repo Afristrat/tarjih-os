@@ -575,10 +575,15 @@ h2 {
 }
 
 /* Un formulaire ne peut pas enjamber plusieurs cellules d'une même ligne : les
-   formulaires d'enregistrement vivent donc hors du tableau, et les cases s'y
-   rattachent par leur attribut `form`. Sans cette règle ils resteraient des
-   enfants de la grille — hauteur nulle, mais une gouttière chacun. */
-.console-panel > form {
+   formulaires d'enregistrement des droits vivent donc hors du tableau, et les
+   cases s'y rattachent par leur attribut `form`. Sans cette règle ils
+   resteraient des enfants de la grille — hauteur nulle, mais une gouttière
+   chacun. Ils se reconnaissent à leur `id`, jamais à leur position : la règle
+   `.console-panel > form` masquait TOUT formulaire enfant d'un panneau, et le
+   2026-09-15 elle a fait disparaître le geste « approuver l'identique » de
+   l'écran de consolidation — présent dans le HTML, invisible, introuvable par
+   la recette. */
+.console-panel > form[id^="grant-"] {
   display: none;
 }
 
