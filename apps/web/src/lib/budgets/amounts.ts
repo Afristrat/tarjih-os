@@ -73,3 +73,32 @@ export function subtractAmounts(left: string, right: string): string | null {
 
   return a === null || b === null ? null : fromMicros(a - b);
 }
+
+/**
+ * La variation de `base` à `target`, en pour cent à une décimale, ou `null`
+ * si un montant est illisible ou si la base est nulle — un rapport à zéro n'a
+ * pas de valeur, et « — » vaut mieux qu'un infini.
+ *
+ * Même arithmétique entière que le reste du module : le rapport est calculé
+ * en millièmes de pour cent sur `bigint`, arrondi à la décimale au demi
+ * supérieur en valeur absolue, puis écrit. Le piège mesuré le 2026-09-08 — un
+ * total en `Number` qui affichait −8,7 % pour −27,8 % réels — ne passe pas ici.
+ */
+export function percentChange(base: string, target: string): string | null {
+  const a = toMicros(base);
+  const b = toMicros(target);
+  if (a === null || b === null || a === ZERO) {
+    return null;
+  }
+
+  // (b − a) / a × 100 en centièmes de pour cent (× 10 000), puis arrondi au
+  // dixième sur la valeur absolue, et le signe est rétabli.
+  const scaled = ((b - a) * BigInt(10000)) / a;
+  const negatif = scaled < ZERO;
+  const absolu = negatif ? -scaled : scaled;
+  const arrondi = (absolu + BigInt(5)) / BigInt(10);
+  const entier = arrondi / BigInt(10);
+  const decimale = arrondi % BigInt(10);
+
+  return `${negatif && arrondi !== ZERO ? "-" : ""}${entier.toString()}.${decimale.toString()}`;
+}

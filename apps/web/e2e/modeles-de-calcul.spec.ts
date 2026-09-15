@@ -497,11 +497,58 @@ test.describe("Une version suivante reprend la précédente au lieu de la ressai
     expect(erreurs(), "erreurs de console sur la fiche d'hypothèse").toEqual([]);
   });
 
+  test("le DAF lit l'écart avec la version 1 et approuve d'un geste ce qui n'a pas bougé", async ({
+    page,
+  }) => {
+    const erreurs = surveillerLaConsole(page);
+    await connecter(page, DAF);
+    const versionId = versionReprise.split("/").pop() ?? "";
+    await page.goto(`/app/consolidation/${versionId}`, { waitUntil: "domcontentloaded" });
+
+    // La comparaison s'ouvre d'elle-même sur la version dont celle-ci descend.
+    // Jusqu'au 2026-09-15, « qu'est-ce qui a changé ? » n'avait pas d'écran.
+    const ecart = page.getByRole("region", { name: /Par rapport à la version 1/ });
+    await expect(ecart, "l'écart avec la version d'origine n'est pas affiché").toBeVisible();
+    await expect(ecart.locator(".ecart-summary")).toHaveText("1 identique · 1 modifiée");
+
+    const produit = ecart.getByRole("row", { name: /chiffre_affaires/ });
+    const commission = ecart.getByRole("row", { name: /commission_apport/ });
+    await expect(produit).toContainText("Identique");
+    // Une ligne modifiée montre ses TERMES des deux côtés — le taux d'avant et
+    // le taux d'après — jamais un produit recalculé par l'écran.
+    await expect(commission).toContainText("Modifiée");
+    await expect(commission).toContainText(`${TAUX} × ${CODE_PRODUIT}`);
+    await expect(commission).toContainText(`${TAUX_CORRIGE} × ${CODE_PRODUIT}`);
+
+    // Pas de montants à comparer : cette version n'est pas publiée.
+    await expect(ecart).toContainText("Les montants ne se comparent qu’entre deux versions publiées");
+
+    // Le geste : une seule ligne est identique à une approuvée de la v1.
+    await ecart.getByRole("button", { name: "Approuver la ligne identique" }).click();
+    await expect(page.getByText("Lignes identiques approuvées", { exact: false })).toBeVisible();
+
+    const apres = page.getByRole("region", { name: /Par rapport à la version 1/ });
+    await expect(
+      apres.getByRole("row", { name: /chiffre_affaires/ }).locator(".state-tag").nth(1),
+      "la ligne identique n'a pas été approuvée dans CETTE version",
+    ).toHaveText("Approuvée");
+    await expect(
+      apres.getByRole("row", { name: /commission_apport/ }).locator(".state-tag").nth(1),
+      "la ligne modifiée a été approuvée alors qu'elle attend une décision une à une",
+    ).toHaveText("Proposée");
+    await expect(
+      apres.getByRole("button", { name: /Approuver/ }),
+      "le geste reste proposé alors qu'il n'y a plus rien d'identique à approuver",
+    ).toHaveCount(0);
+
+    expect(erreurs(), "erreurs de console sur l'écart").toEqual([]);
+  });
+
   test("le DAF approuve, le DG publie : la charge est le NOUVEAU taux sur la base recalculée", async ({
     page,
   }) => {
     await connecter(page, DAF);
-    await approuver(page, versionReprise, "chiffre_affaires");
+    // « chiffre_affaires » a été approuvée par le geste ; il reste la modifiée.
     await approuver(page, versionReprise, "commission_apport");
 
     const erreurs = surveillerLaConsole(page);
@@ -519,6 +566,29 @@ test.describe("Une version suivante reprend la précédente au lieu de la ressai
       await montantPublie(page, CODE_CHARGE),
       "la charge n'est pas le taux corrigé appliqué à la base",
     ).toBe(CHARGE_CORRIGEE_ATTENDUE);
+
+    // Les deux versions sont publiées : les montants se comparent, en exact.
+    const ecart = page.getByRole("region", { name: /Par rapport à la version 1/ });
+    const montants = ecart.locator(".ecart-table").nth(1);
+    const ligneCharge = montants.getByRole("row", { name: new RegExp(CODE_CHARGE) });
+    const cellules = ligneCharge.locator(".amount-cell");
+    expect(enCentimes(lire(await cellules.nth(0).innerText()))).toBe(CHARGE_ATTENDUE);
+    expect(enCentimes(lire(await cellules.nth(1).innerText()))).toBe(CHARGE_CORRIGEE_ATTENDUE);
+    expect(enCentimes(lire(await cellules.nth(2).innerText()))).toBe(
+      CHARGE_CORRIGEE_ATTENDUE - CHARGE_ATTENDUE,
+    );
+    await expect(cellules.nth(3), "0,06 sur 0,05 fait 20 %, pas autre chose").toHaveText(/^20,0/);
+
+    const ligneProduit = montants.getByRole("row", { name: new RegExp(CODE_PRODUIT) });
+    await expect(ligneProduit.locator(".amount-cell").nth(3)).toHaveText(/^0,0/);
+
+    // Le résultat recule de 14 400 sur 1 368 000 : −1,1 %, calculé sans flottant.
+    const resultat = montants.locator(".result-row .amount-cell");
+    expect(enCentimes(lire(await resultat.nth(0).innerText()))).toBe(RESULTAT_ATTENDU);
+    expect(enCentimes(lire(await resultat.nth(1).innerText()))).toBe(
+      PRODUIT_ATTENDU - CHARGE_CORRIGEE_ATTENDUE,
+    );
+    await expect(resultat.nth(3)).toHaveText(/^-1,1/);
 
     expect(erreurs(), "erreurs de console sur la consolidation reprise").toEqual([]);
   });
