@@ -369,9 +369,14 @@ test.describe("Le modèle « Centres de coûts » refuse un produit, et le dit �
       page.locator(".state-tag").filter({ hasText: "Brouillon" }),
       "la version refusée n'est plus un brouillon : le refus a laissé un état",
     ).toBeVisible();
+    // La table des montants seulement : la section « Écart » peut légitimement
+    // citer ce compte dans les termes d'une hypothèse d'une autre version.
     await expect(
-      page.getByRole("row", { name: new RegExp(CODE_PRODUIT) }),
+      page.getByText("Aucun montant publié pour cette version", { exact: false }),
       "un montant a été publié malgré le refus du moteur",
+    ).toBeVisible();
+    await expect(
+      page.locator(".data-table:not(.ecart-table)").getByRole("row", { name: new RegExp(CODE_PRODUIT) }),
     ).toHaveCount(0);
 
     // Le refus arrive APRÈS saisie et approbation, et l'écran ne dit pas quelle

@@ -423,9 +423,10 @@ export default async function ConsolidationPage({
   const currency = publishedValues[0]?.currency ?? context.baseCurrency;
 
   // La version de base : celle demandée par `?with=`, sinon celle dont cette
-  // version descend, sinon la précédente par numéro (les versions ouvertes
-  // avant la reprise n'ont pas de filiation écrite). Une base demandée qui
-  // n'est pas une version du cycle est refusée, pas devinée.
+  // version descend. Rien d'autre : une version sans filiation (ouverte vide)
+  // ne se compare à personne par défaut — deviner « la précédente » mettrait
+  // face à face deux modèles de calcul sans que rien ne le dise. Une base
+  // demandée qui n'est pas une version du cycle est refusée, pas devinée.
   const siblings: ComparedVersion[] = [];
   for (const row of siblingsResult.data ?? []) {
     if (
@@ -445,9 +446,7 @@ export default async function ConsolidationPage({
 
   const requestedBase = single(query.with);
   const defaultBase =
-    siblings.find((sibling) => sibling.id === version.parent_version_id) ??
-    [...siblings].reverse().find((sibling) => sibling.versionNo < version.version_no) ??
-    null;
+    siblings.find((sibling) => sibling.id === version.parent_version_id) ?? null;
   const base = requestedBase
     ? (siblings.find((sibling) => sibling.id === requestedBase) ?? null)
     : defaultBase;
@@ -665,7 +664,7 @@ export default async function ConsolidationPage({
         )}
       </div>
 
-      {comparedBase ? (
+      {siblings.length > 0 ? (
         <Ecart
           base={comparedBase}
           currency={currency}

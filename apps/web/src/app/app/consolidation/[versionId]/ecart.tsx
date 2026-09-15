@@ -167,7 +167,8 @@ export function Ecart({
   target,
   values,
 }: {
-  base: ComparedVersion;
+  /** `null` : cette version ne descend d'aucune autre et rien n'a été demandé. */
+  base: ComparedVersion | null;
   currency: string;
   hypotheses: readonly HypothesisComparison[];
   labels: Labels;
@@ -176,6 +177,48 @@ export function Ecart({
   target: ComparedVersion;
   values: readonly ValueComparison[] | null;
 }): ReactElement {
+  // Une requête GET ordinaire : l'adresse dit avec quoi on compare, et se
+  // partage telle quelle. Sans script.
+  const selector = (
+    <form className="version-opener" method="get">
+      <label className="visually-hidden" htmlFor="ecart-with">
+        Version de comparaison
+      </label>
+      <select id="ecart-with" name="with" defaultValue={base?.id ?? ""}>
+        {base ? null : (
+          <option value="" disabled>
+            Choisir une version
+          </option>
+        )}
+        {siblings.map((sibling) => (
+          <option key={sibling.id} value={sibling.id}>
+            Version {sibling.versionNo} — {versionStatusLabel(sibling.status)}
+          </option>
+        ))}
+      </select>
+      <button className="console-button" type="submit">
+        Comparer
+      </button>
+    </form>
+  );
+
+  if (!base) {
+    return (
+      <section className="console-panel" aria-labelledby="ecart-title">
+        <div className="panel-head">
+          <div>
+            <p className="console-kicker">Écart</p>
+            <h2 id="ecart-title">Comparer avec une autre version</h2>
+          </div>
+          {selector}
+        </div>
+        <p className="console-empty">
+          Cette version ne descend d’aucune autre : choisissez la version à laquelle la comparer.
+        </p>
+      </section>
+    );
+  }
+
   const sameInputs =
     base.inputHash !== null && target.inputHash !== null && base.inputHash === target.inputHash;
   const approvable = countApprovable(hypotheses);
@@ -195,24 +238,7 @@ export function Ecart({
             </span>
           </h2>
         </div>
-
-        {/* Une requête GET ordinaire : l'adresse dit avec quoi on compare, et se
-            partage telle quelle. Sans script. */}
-        <form className="version-opener" method="get">
-          <label className="visually-hidden" htmlFor="ecart-with">
-            Version de comparaison
-          </label>
-          <select id="ecart-with" name="with" defaultValue={base.id}>
-            {siblings.map((sibling) => (
-              <option key={sibling.id} value={sibling.id}>
-                Version {sibling.versionNo} — {versionStatusLabel(sibling.status)}
-              </option>
-            ))}
-          </select>
-          <button className="console-button" type="submit">
-            Comparer
-          </button>
-        </form>
+        {selector}
       </div>
 
       {sameInputs ? (
