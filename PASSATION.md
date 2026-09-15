@@ -4,6 +4,129 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-15 — ALERTE 4 livrée en base et en écran : comparer deux versions, approuver l'identique d'un geste — recette à REJOUER sur le dernier correctif
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`929adbd`**, worktree PROPRE.
+  Prod      : `tarjih-web` sur **`34a190a`** (`healthy`) — **`929adbd` PAS ENCORE DÉPLOYÉ** (correctif
+              CSS d'une ligne, commité et poussé). `tarjih-calculation` sur `9abc801` (inchangé).
+  Base prod : **migration `20260915090000 compare_two_versions` APPLIQUÉE** (rollback éprouvé en
+              transaction annulée avant, `-1`), 11 migrations au registre, **162 pgTAP verts contre
+              la production** (12 fichiers, dont `12_compare_two_versions` 22/22).
+  CI        : verte sur `34a190a` (base vide : 11 migrations, 162 contrôles, 10 rollbacks, schéma
+              identique à l'octet) ; en cours/à vérifier sur `929adbd` (`gh run list --limit 1`).
+  Gates     : typecheck 0 · lint 0 (+ règle `no-use-before-define` activée) · **83 Node** · 43 Python
+              · build OK · Playwright : **28/30 sur `34a190a`** — le pas « écart » rouge (cause
+              trouvée et corrigée dans `929adbd`, non rejouée), 1 pas non joué derrière lui.
+  Tasks     : 01→10 ✅. ALERTE 4 : code livré, preuve navigateur INCOMPLÈTE (voir [NEXT] 1).
+
+[FAIT]
+  1. **Migration `20260915090000_compare_two_versions` (`5feca66`)** — trois fonctions :
+     · `compare_version_hypotheses(base, cible)` `security invoker` : jointure `(dimension_id,
+       parameter_key)`, `identical` (value ET unit égaux) / `changed` / `added` / `removed` ;
+       côté publié = approuvées seules, côté non publié = non rejetées. Conséquence assumée et
+       testée : une ligne proposée-jamais-décidée en v1 publiée, reprise en v2, est « ajoutée ».
+     · `compare_version_values(base, cible)` `security invoker` : jointure `(dimension, compte,
+       période)`, `delta` et `delta_percent` en `numeric` exact (round 1 décimale), refuse
+       (55000) si l'une n'est pas publiée. 1 440 000 → 1 040 000 = −27,8 %.
+     · `approve_identical_hypotheses(base, cible, motif)` `security definer` : pour chaque ligne
+       identique à une ligne APPROUVÉE de la base, encore proposée, sur une dimension où
+       l'appelant a `approve` → `decide_hypothesis` (une décision par ligne, motif, transaction
+       unique). Refuse cible publiée (55000), motif vide (22023), tenant étranger (P0002).
+       Rend le nombre approuvé (contributeur : 0, aucune décision écrite).
+     pgTAP `12` : 22 contrôles (anonyme, tiers, inter-tenant, périmètre du contributeur borné par
+     RLS, comparaison complète DAF, v1/v2 publiées, auto-comparaison vide, montants exacts, geste
+     = 2 lignes, statuts/révisions/décisions nominatives, rejeu = 0, base intacte). Rollback
+     `.down.sql`. Chaîne du schéma verte en base jetable dès le 2e passage.
+  2. **Écran (`5feca66` + correctifs)** — `/app/consolidation/[id]?with=<uuid>` : section « Écart »
+     (`ecart.tsx`, helpers purs dans `lib/budgets/comparison.ts` testés Node), base = `?with=`
+     sinon `parent_version_id` ; **sans filiation ni `?with=`, seul le sélecteur s'affiche** (le
+     repli « précédente par numéro » mettait face à face deux modèles de calcul : retiré,
+     `34a190a`). Sélecteur GET sur les versions du cycle ; `input_hash` égaux annoncés ; niveau 1
+     avec les TERMES (`320 × 4500`, `0.05 × compte`) + statuts des deux côtés + synthèse « N
+     identiques · M modifiées… » ; formulaire du geste (motif pré-rempli, « Approuver la/les N
+     ligne(s) identique(s) ») si cible non publiée et ≥ 1 approuvable ; niveau 2 si les deux
+     publiées : tableau + Total produits / Total charges / Résultat des deux côtés, delta et
+     variation (`percentChange`, bigint, testé : −27,8 %). Notices `identical-approved`,
+     `identical-none`, `identical-failed`, `compare-unknown`. Action `approveIdentical`.
+  3. **Trois défauts trouvés par la recette navigateur, tous corrigés à la racine :**
+     · `1cca2a8` — ERREUR SERVEUR sur toute version ayant une sœur : le tri de la comparaison
+       lisait `dimensionNames`/`accountCodes`/`periodStarts` AVANT leur `const` (zone morte
+       temporelle dans une closure, invisible au typecheck). Bloc déplacé après les index ;
+       **règle ESLint `@typescript-eslint/no-use-before-define` (variables) activée** — rouge
+       prouvé sur le défaut, verte après.
+     · `34a190a` — le test « rien n'est publié malgré le refus » cherchait le code du compte dans
+       TOUTE ligne de la page et le trouvait dans les termes d'une hypothèse de la section Écart :
+       test recentré sur la table des montants + état vide ; et repli par numéro retiré (cf. 2).
+     · `929adbd` — **le formulaire du geste était `display: none`** : `.console-panel > form
+       { display:none }` (règle pour les formulaires porteurs des grilles de droits) masquait
+       tout formulaire enfant d'un panneau. Présent dans le HTML servi, invisible dans le DOM,
+       introuvable par Playwright (`box: null`). Règle restreinte à `form[id^="grant-"]`.
+       Diagnostiqué par une sonde Playwright jetable (supprimée) : `isVisible()` + `getComputedStyle`.
+  4. Recette `modeles-de-calcul` étendue : pas « le DAF lit l'écart avec la version 1 et approuve
+     d'un geste » (synthèse « 1 identique · 1 modifiée », termes des deux taux, geste → ligne
+     approuvée dans CETTE version, modifiée toujours proposée, bouton disparu) ; pas final : niveau
+     2 après publication (+20,0 % sur la charge, 0,0 % sur le produit, résultat −1,1 %).
+  5. Réseau du poste dégradé toute la session (IP 10.143.x, 100–1 400 ms vers le LAN, SSH qui
+     expire par intermittence) : un passage entier de recette est tombé en `ERR_CONNECTION_CLOSED`
+     sur `/login` (4 workers, juste après un déploiement) — même signature que l'échec inexpliqué
+     du 11/09 ; trace conservée `%TEMP%\trace-login-closed-2026-09-15.zip`. Serveur, stack
+     Supabase et tunnel étaient sains (`lawh.ma` 200 au même instant). Non conclu (SOP-007).
+
+[ALERTE]
+  1. **`929adbd` non déployé, recette non rejouée** : ALERTE 4 n'est PAS prouvée dans un
+     navigateur tant que `modeles-de-calcul` (30/30) n'est pas verte sur le déployé.
+  2. Frottement « approuver l'identique » : FERMÉ par le geste (ALERTE 2 close intégralement).
+  3. `TARJIH_ADMIN_TECHNIQUE` toujours au coffre (clé d'un compte banni) — attend un « oui ».
+  4. **SOP-029 est prise** (délégation inversée, brouillon, session sop) : le brouillon de la
+     session Tarjih « chaîne de gates exigée par le système » (scratchpad
+     `…\d2ee79d5-…\scratchpad\SOP-029-chaine-de-gates-exigee-par-le-systeme.md`) doit être
+     importé sous **SOP-030** par la session sop. ÉPHÉMÈRE tant que non importé.
+  5. Toujours ouverts : ALERTE 5 (auto-approbation, export sans origines), 8 (annotation
+     contributeur), 9 (scénarios parallèles), 10 (RBAC par dimension) ; échec de connexion
+     11/09 + 15/09 (deux occurrences, non reproduites à la main).
+  6. `MEMORY.md` du projet a perdu la ligne d'index de `feedback-gates-configurees-pas-lancees.md`
+     (fichier toujours présent) — à réindexer.
+
+[NEXT]
+  1. **Déployer `929adbd`** (`deploy?uuid=l3fov9fbnjvrgt5ly75b7g5r`), attendre `healthy` sur le
+     sha, **rejouer les 4 recettes** (`-TimeoutSec 570`, broker) → 30/30 attendus. Si le pas
+     « écart » rougit encore : lire `error-context.md` + `trace.zip` AVANT `rm -rf test-results`.
+  2. Passation de clôture d'ALERTE 4 + `store_memory` Mnemo (cercle `PASSATION Tarjih`).
+  3. Ensuite : ALERTE 5 (proposition du 13/09 : rendre visible « décidée par son auteur »
+     plutôt qu'interdire — tenant réel à UN membre), puis 8/9/10 sur besoin mesuré.
+
+[CTX]
+  Session `018JVMAt…`, 2026-09-15. Commits : `5feca66` (ALERTE 4), `1cca2a8`, `34a190a`,
+  `929adbd`. Fichiers neufs : `supabase/migrations/20260915090000_compare_two_versions.sql` (+
+  rollback + `tests/12_…`), `apps/web/src/app/app/consolidation/[versionId]/ecart.tsx`,
+  `apps/web/src/lib/budgets/comparison.ts`, `apps/web/tests/ecart.test.ts`.
+  Versions de recette du jour (tenant e2e, cycle « Modèles 1789506516208 ») : v1 driver publiée
+  `a3c9a08a…`, v4 reprise brouillon `01b28ef0…` (2 lignes proposées, rien décidé).
+  Vérifier la migration en prod : `select version from supabase_migrations.schema_migrations
+  order by 1 desc limit 1` → `20260915090000`.
+  Lire une trace Playwright sans interface : `unzip trace.zip`, `0-trace.trace` (JSON par ligne,
+  `type: before/after/log`, `callId`), `resources/*.html` = instantanés DOM.
+  Reste inchangé : entrée du 2026-09-14, [CTX] ; entrée du 2026-09-06, [CTX].
+
+[MEMO]
+  1. **Le HTML servi n'est pas l'écran.** Un élément peut être dans la réponse et absent du
+     rendu (`display:none` hérité d'une règle trop large) : quand un locateur ne trouve pas ce
+     que le HTML montre, mesurer `isVisible()` et `getComputedStyle` avant d'accuser le locateur.
+  2. **Un sélecteur CSS par position (`.panel > form`) encode une intention par accident** ;
+     la règle doit nommer ce qu'elle vise (`form[id^="grant-"]`).
+  3. **La zone morte temporelle passe le typecheck** : une `const` lue dans une closure avant sa
+     ligne casse à l'exécution, seulement quand la branche s'exécute. `no-use-before-define`
+     (variables) la voit ; elle est désormais exigée.
+  4. **Un test qui cherche « aucune ligne avec X » sur toute la page casse dès qu'un autre
+     tableau cite X légitimement** : cibler la table qui porte l'invariant.
+  5. **Pas de repli deviné** : sans filiation, ne pas choisir « la précédente » à la place de
+     l'utilisateur — deux modèles de calcul face à face sans le dire, c'est un mensonge d'écran.
+```
+
+---
+
 ## 2026-09-14 — Chaque gate est exigée, plus seulement lancée : CI, ruff/mypy configurés, chaîne du schéma rejouée sur une base vide
 
 ```
