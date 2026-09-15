@@ -70,8 +70,16 @@ function formatAmount(amount: string | null, currency: string): string {
   }).format(parsed);
 }
 
+/**
+ * Une variation à UNE décimale, toujours : la base la calcule ainsi, mais un
+ * `numeric` traverse PostgREST en nombre JSON, et « 20.0 » y devient « 20 ».
+ */
 function formatPercent(percent: string | null): string {
-  return percent === null ? "—" : `${percent.replace(".", ",")} %`;
+  if (percent === null) {
+    return "—";
+  }
+  const [entier, decimales = ""] = percent.split(".");
+  return `${entier},${(decimales + "0").slice(0, 1)} %`;
 }
 
 function HypothesisSide({

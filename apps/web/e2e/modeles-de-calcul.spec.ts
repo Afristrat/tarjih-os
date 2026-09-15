@@ -135,7 +135,12 @@ async function approuver(page: Page, adresse: string, parametre: string): Promis
 
 /** Montant publié d'un compte, lu dans la table de consolidation, en centimes. */
 async function montantPublie(page: Page, codeCompte: string): Promise<number> {
-  const ligne = page.getByRole("row", { name: new RegExp(codeCompte) });
+  // La table des montants publiés seulement : depuis le 2026-09-15, la section
+  // « Écart » cite le même compte dans les termes d'une hypothèse et dans sa
+  // propre table de montants.
+  const ligne = page
+    .locator(".data-table:not(.ecart-table)")
+    .getByRole("row", { name: new RegExp(codeCompte) });
   await expect(ligne, `aucune ligne publiée pour le compte ${codeCompte}`).toHaveCount(1);
   return enCentimes(lire(await ligne.locator(".amount-cell").innerText()));
 }
