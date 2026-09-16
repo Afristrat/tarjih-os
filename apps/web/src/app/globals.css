@@ -1120,3 +1120,44 @@ h2 {
   margin-top: 16px;
   padding-top: 16px;
 }
+
+/* Mentions légales : un texte à lire, pas une page d'accueil. Les h1/h2
+   globaux montent jusqu'à 7,6rem pour une seule phrase de hero ; ici il y a
+   sept sections de prose, cloisonnées comme .console pour ne pas hériter
+   cette échelle. */
+.legal {
+  display: grid;
+  gap: 34px;
+  max-width: 720px;
+  padding-block: 60px 100px;
+}
+
+.legal h1 {
+  font-size: clamp(2rem, 3.4vw, 2.6rem);
+  margin-bottom: 6px;
+  max-width: none;
+}
+
+.legal h2 {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 10px;
+  max-width: none;
+}
+
+.legal section {
+  border-top: 1px solid var(--line);
+  padding-top: 26px;
+}
+
+.legal p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.legal-updated {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
