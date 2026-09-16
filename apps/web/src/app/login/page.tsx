@@ -55,6 +55,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps): Promi
           <input id="password" name="password" type="password" autoComplete="current-password" required />
           <button type="submit">Se connecter</button>
         </form>
+        <Link href="/mentions-legales" className="text-button">
+          Mentions légales
+        </Link>
       </section>
     </main>
   );

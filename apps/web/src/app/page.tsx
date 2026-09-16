@@ -1,4 +1,6 @@
 import { productPillars } from "@/lib/product";
+import { LEGAL } from "@/lib/legal";
+import Link from "next/link";
 import type { ReactElement } from "react";
 
 export default function Home(): ReactElement {
@@ -54,8 +56,12 @@ export default function Home(): ReactElement {
       </section>
 
       <footer className="shell footer">
-        <p>Tarjih — ترجيح</p>
-        <p>La décision financière rendue explicable.</p>
+        <p>
+          © 2026 {LEGAL.societe} · RC Casablanca {LEGAL.rc} · ICE {LEGAL.ice}
+        </p>
+        <p>
+          <Link href="/mentions-legales">Mentions légales</Link>
+        </p>
       </footer>
     </main>
   );
