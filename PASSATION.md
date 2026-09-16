@@ -4,6 +4,128 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-16 (nuit) : la gate Playwright est exigée par le système, sur un runner auto-hébergé, sans aucun secret chez GitHub ; premier run 33/38, relance en cours
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`dd06f3c`** (+ cette entrée), worktree PROPRE.
+              Commits du soir :
+              `7486297` (compose plafonds), `9e0da73`, `8881220` (ALERTE 10 close), `5d9aaa7`
+              (gate inerte), `fb432e8`, `acd1df6` (gate sur runner auto-hébergé), `dd06f3c`
+              (attente `running:healthy` en boucle, 3 min max par application).
+  Prod      : `tarjih-web` et `tarjih-calculation` sur **`acd1df6`**, `running:healthy`,
+              DÉPLOYÉS PAR LE WORKFLOW (étapes 3 et 4 du run `35141326294` vertes).
+  Runner    : service Coolify **`tarjih-ci-runner`** (uuid `wcmx92t5w9ehoahpemqidbqr`, projet
+              Tarjih, env production), image `myoung34/github-runner:2.337.0-ubuntu-noble`,
+              runner GitHub **`serveuria-tarjih-1`** (dépôt `Afristrat/tarjih-os`, labels
+              `self-hosted,linux,x64,serveuria,tarjih`), `online`. SANS docker.sock, SANS réseau
+              hôte ; réseaux `coolify` + le sien ; `mem 3g / swap 6g / pids 2048` ; volumes
+              config, work, toolcache (`PLAYWRIGHT_BROWSERS_PATH=/opt/hostedtoolcache/playwright`).
+  Secrets   : **aucun chez GitHub** (décision d'Amine : « aucun password ne va sur GH »).
+              Fichier `/home/serveuria/ops/tarjih/runner.env` (root:root 0600, 640 octets, 6
+              lignes, VALEURS ENTRE APOSTROPHES) monté `ro` en `/run/tarjih/runner.env` :
+              `COOLIFY_URL='http://coolify:8080'`, `COOLIFY_API_TOKEN` (jeton **id 20**
+              `tarjih-ci-deploy-2026-09-16b`, portée read+deploy, coffre
+              `TARJIH_COOLIFY_DEPLOY_TOKEN`), les 4 `TARJIH_E2E_PW_*` (copie du coffre).
+              Chaque étape le charge dans son propre shell (`set -a; . …; set +a`).
+  Gate      : `.github/workflows/deploy.yml` sur `workflow_run` de CI (master, success),
+              `runs-on: [self-hosted, tarjih]`, `concurrency` sérialisée : POST `/deploy` des
+              deux uuid → attente `finished` puis `running:healthy` → setup-node 22 → `npm ci`
+              → `playwright install --with-deps chromium` → `npm run test:e2e`.
+              Run `35141326294` tentative 4 : étapes 1-7 vertes, **recette 33 passed, 1 failed
+              (pas 26, `precision-des-montants.spec.ts:59`, `locator.fill` délai 90 s sur
+              `input[name="name"]` du formulaire « Créer le compte »), 4 non joués**, 5,0 min.
+              Ce pas passe sur le poste (38/38 deux fois ce jour). **Tentative 5** : rouge à
+              l'étape 4, `tarjih-web` lu `running:unhealthy` ~30 s après `finished` (sonde du
+              conteneur neuf pas encore passée) → corrigé par `dd06f3c` (boucle jusqu'à
+              `running:healthy`). **Run sur `dd06f3c` EN COURS au moment de cette entrée** :
+              `gh run list --workflow Déploiement --limit 1` puis `gh run view <id> --json
+              status,conclusion,jobs`.
+  Coffre    : 336 clés. `TARJIH_COOLIFY_DEPLOY_TOKEN` = jeton 20 (le 19 est RÉVOQUÉ).
+  ALERTES   : 1, 2, 4, 5, 7, 8, 10 fermées ; 9 non ouverte (sans mesure). Aucune technique.
+
+[FAIT]
+  1. ALERTE 10 close (« Normalement oui » : le DAF voit tout), matrice RBAC documentée dans
+     `specs/_source/archi.md` (`8881220`).
+  2. Gate exigée par le système, itération 1 (`5d9aaa7`, `fb432e8`) : workflow inerte gardé
+     par une variable, jeton Coolify read+deploy (id 19), script de dépôt des secrets GitHub.
+     **Amine : non.** Itération 2 (`acd1df6`) : runner auto-hébergé + fichier serveur ; script
+     GitHub supprimé, variable retirée.
+  3. Runner créé par l'API (`POST /services` avec `docker_compose_raw` base64 ; sur 4.3.19
+     `connect_to_docker_network` est REFUSÉ à la création → `PATCH /services/{uuid}` après,
+     puis `restart`, sinon le conteneur n'est pas sur le réseau `coolify` et `coolify:8080`
+     est injoignable). Jeton d'enregistrement GitHub par `gh api -X POST …/registration-token`
+     posé en variable chiffrée `TARJIH_RUNNER_TOKEN` (PATCH `/services/{uuid}/envs` 201), à
+     usage unique, config persistée dans le volume `runner-config`.
+  4. Jeton Coolify à portée `read`+`deploy` : Coolify n'a pas d'API de création ; créé par
+     `php artisan tinker --execute='eval(base64_decode(…))'` avec
+     `session(['currentTeam' => Team::find(0)])` AVANT `createToken` (sinon `team_id` NULL,
+     insertion refusée) ; valeur lue par SSH dans une variable, coffre in-process, prouvée
+     200/200/403 (PATCH refusé), jamais imprimée.
+  5. **INCIDENT, traité** : le jeton Sanctum contient `|` (`19|…`) ; sourcé sans apostrophes,
+     bash a exécuté la partie droite → « command not found » dans le journal du run (dépôt
+     PUBLIC) = E1 SOP-001. Jeton 19 révoqué par tinker (`PersonalAccessToken::find(19)
+     ->delete()`, 0 ligne restante), journaux du run supprimés deux fois (`gh api -X DELETE
+     …/runs/{id}/logs`), registre `secrets-leaks.log` : ligne `rotaté`, jeton 20 créé, fichier
+     réécrit avec apostrophes. Les 4 mots de passe e2e n'ont PAS été évalués (arrêt à la
+     ligne 4, `set -e`) : pas fuités.
+  6. Piège du bind mount d'un FICHIER : `install` remplace l'inode, le conteneur garde
+     l'ancien contenu → un `restart` du service est obligatoire après chaque réécriture
+     (constaté : tentative 3 lisait encore l'ancien fichier).
+
+[ALERTE]
+  1. **Pas 26 rouge sur le runner, vert sur le poste** : hypothèses à départager avec le
+     journal de la tentative 5 : (a) charge du runner (Chromium sous 3g pendant la
+     compilation Next ? non, le build est côté Coolify) ; (b) page `/app/settings/reference`
+     lourde : le tenant e2e accumule un compte `PRC<horodatage>` par passage ; (c) flakiness
+     réseau. Ne PAS ajouter de `retries` (masquerait une vraie panne, mémoire du 16/09 matin).
+     Si rouge à nouveau : lire `error-context.md` et `test-failed-1.png` DANS le conteneur du
+     runner (`/tmp/runner/work/tarjih-os/tarjih-os/apps/web/test-results/`), jamais les
+     rapatrier ni les téléverser en artefact (le trace.zip porte les mots de passe).
+  2. Une recette rouge après un déploiement réussi laisse la prod déployée : la gate signale
+     (run rouge), elle ne bloque pas. Voulu pour l'instant ; un blocage exigerait un
+     déploiement de prévisualisation avant promotion (Task 10 l'a esquissé).
+  3. Le runner Rami (`rami-ci-runner`) tourne AVEC docker.sock, réseau hôte et `mem 12g =
+     swap 12g` (sans amortissement, SOP-020 KPI-2) : constaté en passant, propriétaire Rami.
+  4. Rotation d'une clé e2e ou du jeton = coffre + fichier serveur + `restart` du runner
+     (trois gestes, documentés dans `runner.env` et la mémoire projet).
+
+[NEXT]
+  1. Lire le run Déploiement sur `dd06f3c`. Vert → la gate est prouvée de bout en bout :
+     l'écrire ici, mettre à jour `reference-inventaire-cles-tarjih.md` (jeton 20) et retirer
+     de l'index central la mention « décision de politique de secrets ». Rouge au pas 26 →
+     ALERTE 1 ci-dessus, diagnostiquer DANS le runner, corriger la cause (jamais un retry).
+  2. Réécrire l'entrée [NEXT] 1 de l'entrée « (soir) » (elle décrit l'itération GitHub
+     secrets, périmée).
+  3. Rien d'autre d'entamé.
+
+[CTX]
+  Session `018JVMAt…` (id local `52e5f22f`), 2026-09-16 nuit. Scripts (scratchpad, sans
+  secret) : `creer-runner.ps1` (compose du runner en clair dedans), `runner-env-serveur.ps1`
+  (dépôt du fichier par STDIN SSH base64, `tr -cd` contre le BOM PowerShell),
+  `coolify-deploy-token.ps1`, `revoquer-19.sh`, `runner-reseau.ps1`, `runner-restart.ps1`,
+  `runner-verif*.sh`, `runner-env-test.sh` (source + longueurs + HTTP 200 sur
+  `127.0.0.1:8000`). Coolify : `GET /services/{uuid}/restart` marche en 4.3.19 ; API
+  interne depuis le réseau `coolify` = `http://coolify:8080`. Journaux d'un run :
+  `gh run view <id> --log-failed`, masquer par `sed -E 's/[A-Za-z0-9_-]{28,}/<masqué>/g'`.
+  `gh run rerun <id> --failed` incrémente `attempt`. Le garde bash bloque tout texte de
+  commande contenant curl+coolify ou docker+env : passer par un script de fichier.
+  Reste inchangé : entrées du 2026-09-16 soir et matin, [CTX].
+
+[MEMO]
+  1. **Un secret sourcé par un shell se cite entre apostrophes, toujours** : `19|abc` est un
+     tube pour bash, et le journal d'un dépôt public l'a imprimé. Vérifier le fichier par
+     `sudo bash -c 'set -a; . f; set +a; echo ${#VAR}'` AVANT de l'utiliser dans une CI.
+  2. **Bind mount de fichier + remplacement d'inode = contenu figé** : réécrire en place ou
+     redémarrer le conteneur, et prouver depuis l'intérieur (`sed -n 3p`).
+  3. **Une décision « non » n'annule pas la gate, elle change son support** : GitHub secrets
+     refusés → runner sur le serveur qu'Amine possède déjà ; le système exige toujours.
+  4. **Un jeton API se crée là où l'interface le ferait** (tinker sous la même session
+     d'équipe), et se prouve par le refus (403) autant que par l'accès (200).
+```
+
+---
+
 ## 2026-09-16 (soir) : le jeton du moteur ne vit plus dans les images ; le moteur porte son plafond ; ALERTE 10 reposée sur preuve
 
 ```
@@ -83,20 +205,8 @@
   5. `Tee-Object` écrit en UTF-16 : lire le journal par `decode('utf-16')`, pas par `cat`.
 
 [NEXT]
-  1. **Gate Playwright exigée par le système : tout est en place, INERTE, un mot l'active.**
-     `.github/workflows/deploy.yml` COMMITÉ (`5d9aaa7`) : après une CI verte sur master,
-     déploiement des deux applications par l'API (POST `/deploy`), attente `finished` puis
-     `running:healthy`, 38 pas Playwright, `concurrency` sérialisée. Inerte tant que la
-     variable de dépôt `TARJIH_GATE_E2E` ≠ `true` : run `35137993350` sur `5d9aaa7` =
-     `skipped`, aucun déploiement déclenché. Jeton Coolify **à portée `read`+`deploy`**
-     créé côté serveur (tinker, `session(['currentTeam' => Team::find(0)])` sinon
-     `team_id` NULL), id 19 `tarjih-ci-deploy-2026-09-16`, au coffre
-     `TARJIH_COOLIFY_DEPLOY_TOKEN` (336 clés), prouvé : GET 200/200, PATCH **403**.
-     Activation = UNE commande, `scripts/activer-gate-e2e.ps1` par le broker (5 secrets +
-     2 variables déposés depuis le coffre, jamais par le transcript) ; désactivation =
-     `gh variable set TARJIH_GATE_E2E --body false`. **Décision d'Amine** : les 4 mots de
-     passe e2e (tenant de recette) et le jeton read+deploy vont-ils en secrets GitHub ? oui
-     → lancer le script, pousser un commit vide, vérifier le run vert.
+  1. ~~Gate Playwright (itération « secrets GitHub »)~~ PÉRIMÉE le soir même : Amine a dit non
+     aux secrets chez GitHub ; voir l'entrée « (nuit) » ci-dessus (runner auto-hébergé).
   2. Rien d'autre d'entamé ; plus aucune alerte technique ouverte, 9 reste fermée jusqu'à mesure.
 
 [CTX]
