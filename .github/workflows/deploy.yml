@@ -63,9 +63,17 @@ jobs:
             sleep 10
           done
           [ "$restants" -eq 0 ] || { echo "déploiements toujours en cours après 10 min" >&2; exit 1; }
+          # « finished » précède la première sonde de santé du conteneur neuf : on attend
+          # `running:healthy` jusqu'à 3 min par application (constaté le 16/09 : unhealthy
+          # pendant ~30 s après la fin du déploiement, healthy ensuite).
           for uuid in tuxybsaq9adb6txew2rc6zkr l3fov9fbnjvrgt5ly75b7g5r; do
-            statut=$(curl -sS -f -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
-              "$COOLIFY_URL/api/v1/applications/$uuid" | jq -r '.status')
+            statut=""
+            for i in $(seq 1 18); do
+              statut=$(curl -sS -f -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+                "$COOLIFY_URL/api/v1/applications/$uuid" | jq -r '.status')
+              [ "$statut" = "running:healthy" ] && break
+              sleep 10
+            done
             echo "$uuid : $statut"
             [ "$statut" = "running:healthy" ] || exit 1
           done
