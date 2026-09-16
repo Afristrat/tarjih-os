@@ -19,7 +19,7 @@ import {
   versionStatusLabel,
   versionStatusTone,
 } from "@/lib/budgets/scope";
-import { sumAmounts, subtractAmounts } from "@/lib/budgets/amounts";
+import { amountFromRow, formatAmount, sumAmounts, subtractAmounts } from "@/lib/budgets/amounts";
 import { createClient } from "@/lib/supabase/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -92,27 +92,6 @@ function asVersion(value: unknown): VersionRow | null {
 }
 
 /**
- * Montant lisible par un financier : séparateurs de milliers, deux décimales.
- *
- * L'arrondi d'affichage ne touche pas la valeur publiée, qui reste à six
- * décimales en base. `Number` est acceptable ici et seulement ici : rien de ce
- * qui est calculé ne repart de cette conversion.
- */
-function formatAmount(amount: string, currency: string): string {
-  const parsed = Number(amount);
-  if (!Number.isFinite(parsed)) {
-    return amount;
-  }
-
-  return new Intl.NumberFormat("fr-FR", {
-    currency,
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-    style: "currency",
-  }).format(parsed);
-}
-
-/**
  * D'où vient ce chiffre.
  *
  * `details` natif plutôt qu'un dépliant en JavaScript : l'origine d'un montant
@@ -157,8 +136,8 @@ function ValueOrigin({
 /**
  * Met en forme une part SANS rien arrondir ni faire passer par un flottant.
  *
- * `formatAmount` ne convient pas ici : il fixe deux décimales et passe par
- * `Number`. Sur des parts exactes, cela produit une addition fausse à l'écran —
+ * `formatAmount` ne convient pas ici : il fixe deux décimales. Sur des parts
+ * exactes, cela produit une addition fausse à l'écran —
  * 10,005 et 20,005 s'affichaient « 10,01 » et « 20,01 » sous un total de
  * « 30,01 ». Le lecteur additionne 30,02 et cesse, à raison, de croire le
  * chiffre. Une part garde donc toutes ses décimales, et au moins deux pour
@@ -218,8 +197,10 @@ export default async function ConsolidationPage({
 
   const [values, runs, dimensions, accounts, periods, siblingsResult] = await Promise.all([
     supabase
+      // `amount::text` : un `numeric` sans cast traverse PostgREST en nombre
+      // JSON et perd ses chiffres au-delà du double (cf. `amountFromRow`).
       .from("budget_values")
-      .select("id, dimension_id, account_id, period_id, amount, currency")
+      .select("id, dimension_id, account_id, period_id, amount::text, currency")
       .eq("tenant_id", context.tenantId)
       .eq("version_id", versionId),
     supabase
@@ -300,7 +281,7 @@ export default async function ConsolidationPage({
     ) {
       publishedValues.push({
         account_id: row.account_id,
-        amount: String(row.amount),
+        amount: amountFromRow(row.amount, "budget_values.amount"),
         currency: row.currency,
         dimension_id: row.dimension_id,
         id: row.id,
@@ -317,7 +298,7 @@ export default async function ConsolidationPage({
     const [sources, hypotheses] = await Promise.all([
       supabase
         .from("budget_value_sources")
-        .select("budget_value_id, hypothesis_id, amount")
+        .select("budget_value_id, hypothesis_id, amount::text")
         .eq("tenant_id", context.tenantId)
         .in(
           "budget_value_id",
@@ -348,7 +329,7 @@ export default async function ConsolidationPage({
 
       const parts = sourcesByValue.get(row.budget_value_id) ?? [];
       parts.push({
-        amount: String(row.amount),
+        amount: amountFromRow(row.amount, "budget_value_sources.amount"),
         // Une hypothèse dont le libellé manque n'est pas masquée : son
         // identifiant vaut mieux qu'une ligne disparue.
         label: hypothesisLabels.get(row.hypothesis_id) ?? row.hypothesis_id,
@@ -476,10 +457,14 @@ export default async function ConsolidationPage({
         target_version_id: version.id,
       }),
       bothPublished
-        ? supabase.rpc("compare_version_values", {
-            base_version_id: comparedBase.id,
-            target_version_id: version.id,
-          })
+        ? supabase
+            .rpc("compare_version_values", {
+              base_version_id: comparedBase.id,
+              target_version_id: version.id,
+            })
+            .select(
+              "dimension_id, account_id, period_id, currency, base_amount::text, target_amount::text, delta::text, delta_percent::text",
+            )
         : Promise.resolve({ data: null }),
     ]);
 
@@ -492,7 +477,10 @@ export default async function ConsolidationPage({
 
     if (bothPublished) {
       valueComparison = [];
-      for (const row of rawValues.data ?? []) {
+      // Avec `.select()`, le client type le résultat d'une fonction « objet ou
+      // tableau » ; une fonction set-returning rend toujours un tableau.
+      const valueRows: unknown[] = Array.isArray(rawValues.data) ? rawValues.data : [];
+      for (const row of valueRows) {
         const comparison = asValueComparison(row);
         if (comparison) {
           valueComparison.push(comparison);

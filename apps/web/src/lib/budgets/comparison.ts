@@ -40,6 +40,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function isAmountOrAbsent(value: unknown): value is string | null | undefined {
+  return typeof value === "string" || value === null || value === undefined;
+}
+
 function isOutcome(value: unknown): value is ComparisonOutcome {
   return value === "added" || value === "changed" || value === "identical" || value === "removed";
 }
@@ -68,20 +72,27 @@ export function asHypothesisComparison(value: unknown): HypothesisComparison | n
   };
 }
 
-/** Relit une ligne de `compare_version_values`. Les montants restent des chaînes. */
+/**
+ * Relit une ligne de `compare_version_values`. Les montants sont des chaînes,
+ * ou absents : la requête les demande en `::text`, et un nombre — un `numeric`
+ * passé par un double, décimales perdues — vaut une ligne de forme inconnue.
+ */
 export function asValueComparison(value: unknown): ValueComparison | null {
   if (
     !isRecord(value) ||
     typeof value.dimension_id !== "string" ||
     typeof value.account_id !== "string" ||
     typeof value.period_id !== "string" ||
-    typeof value.currency !== "string"
+    typeof value.currency !== "string" ||
+    !isAmountOrAbsent(value.base_amount) ||
+    !isAmountOrAbsent(value.target_amount) ||
+    !isAmountOrAbsent(value.delta) ||
+    !isAmountOrAbsent(value.delta_percent)
   ) {
     return null;
   }
 
-  const amount = (raw: unknown): string | null =>
-    raw === null || raw === undefined ? null : String(raw);
+  const amount = (raw: string | null | undefined): string | null => raw ?? null;
 
   return {
     accountId: value.account_id,

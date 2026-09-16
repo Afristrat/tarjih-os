@@ -102,3 +102,50 @@ export function percentChange(base: string, target: string): string | null {
 
   return `${negatif && arrondi !== ZERO ? "-" : ""}${entier.toString()}.${decimale.toString()}`;
 }
+
+/**
+ * Un montant tel que la base l'a envoyé, en texte, ou une erreur.
+ *
+ * PostgREST sérialise un `numeric` en nombre JSON, et `JSON.parse` le fait
+ * passer par un double : au-delà de 2⁵³, les chiffres significatifs sont
+ * perdus AVANT que le code ne les voie, et `String()` après coup ne les rend
+ * pas. Chaque lecture d'un montant demande donc `amount::text` ; un nombre ici
+ * signale une requête qui a perdu son cast — une erreur de programmation, qui
+ * ne doit ni s'afficher comme un montant ni disparaître comme une ligne
+ * ignorée (un total amputé ment aussi bien qu'un total faux).
+ */
+export function amountFromRow(raw: unknown, column: string): string {
+  if (typeof raw !== "string") {
+    throw new Error(`${column} doit arriver en texte (\`::text\`), reçu ${typeof raw}`);
+  }
+
+  return raw;
+}
+
+/**
+ * Montant lisible par un financier : séparateurs de milliers, deux décimales,
+ * devise. L'arrondi d'affichage ne touche pas la valeur publiée, qui reste à
+ * six décimales en base.
+ *
+ * La chaîne est donnée telle quelle à `Intl`, qui la lit en décimal exact
+ * (ECMA-402, Node 22) : passer par `Number` arrondirait au-delà de 2⁵³. Un
+ * texte qui n'a pas la forme d'un montant est rendu tel quel, jamais « NaN ».
+ */
+export function formatAmount(amount: string, currency: string): string {
+  const texte = amount.trim();
+  if (!isDecimalLiteral(texte)) {
+    return amount;
+  }
+
+  return new Intl.NumberFormat("fr-FR", {
+    currency,
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: "currency",
+  }).format(texte);
+}
+
+/** La forme d'un montant, telle qu'`Intl` la lit sans conversion. */
+function isDecimalLiteral(value: string): value is `${number}` {
+  return AMOUNT_PATTERN.test(value);
+}
