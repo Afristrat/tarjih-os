@@ -4,6 +4,83 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-16 (nuit, suite) : filet de sauvegarde prouvé (SOP-026) et gate qui ne redéploie plus sur un push documentation seule — entrée de rattrapage, deux signalements ouverts identifiés
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`57f6b07`**, worktree PROPRE. L'entrée « nuit »
+              ci-dessous s'arrêtait à `dd06f3c` ; quatre commits suivent, dont deux non
+              documentés jusqu'ici : `28234fd`, `9ede04c` (doc de la preuve de la gate),
+              `e5abae3` (filet de sauvegarde), `57f6b07` (gate inerte sur push doc seule).
+  Prod      : inchangée depuis l'entrée « nuit » (`tarjih-web`/`tarjih-calculation` healthy).
+
+[FAIT]
+  1. **`e5abae3` — filet de sauvegarde de la base PROUVÉ (SOP-026)**, constat déclencheur :
+     le `pg_dumpall` nocturne du parc restaure **ZÉRO** ligne/fonction/trigger/policy pour
+     Tarjih sur un cluster neuf de l'image de production (mesuré, 60 erreurs), alors qu'un
+     `pg_dump -Fc` restaure la prod à l'identique (22 compteurs, somme des montants exacte).
+     `archi.md` promettait « sauvegardes et restauration testées avant données réelles » ; le
+     tenant réel existe depuis le 07/09. Livré : `scripts/sauvegarde/sauvegarde-tarjih.sh`
+     (03h10, comptes avant dump, chiffrement clé publique seule — la privée reste au coffre
+     DPAPI, GFS 7/8/12, rsync du `.gpg` seul vers l'hôte hors-site) ;
+     `sauvegarde-tarjih-verif.sh` (04h50, cluster témoin sans réseau détruit à chaque passage,
+     comptes comparés, dump > 26 h refusé, 5 chemins d'échec exercés) ;
+     `verif-distante.{ps1,sh}` (mensuel, le 2 à 09h30, lecture du `.gpg` distant par l'hôte,
+     déchiffré avec la clé du coffre, restauré sur l'hôte, effacé) — **prouvé une fois ce jour :
+     comptes identiques**. `docs/deployment-tarjih.md` section « Sauvegarde de la base » ;
+     `archi.md` aligné sur ce qui le prouve désormais.
+  2. **`57f6b07` — un push documentation seule ne redéploie plus la prod ni ne rejoue la
+     recette.** Deux entrées de passation du 16/09 soir avaient chacune redéployé les deux
+     applications et rejoué les 38 pas pour un changement Markdown (runs `35145136879` et
+     `35145920390`). `paths-ignore: ['**.md']` posé sur `push` et `pull_request` de
+     `.github/workflows/ci.yml` : la prod reste sur le dernier commit qui porte du code.
+
+[ALERTE]
+  1. **L28 (index inter-projets, 16/09) — `tarjih-os.com` n'a AUCUNE mention d'éditeur**,
+     vérifié à l'instant en direct : `/mentions-legales` → 404, page d'accueil sans occurrence
+     « éditeur »/« mentions légales ». Aggravant : la plateforme figure dans des dossiers
+     acquéreur bancaires (due diligence Payment Hub, annexe 1 des courriers NAPS/Payzone/
+     Attijari) qui ouvrent ce domaine. Jamais traité dans une entrée de passation Tarjih.
+  2. **L46 (index inter-projets, 08/09, ouvert depuis 8 jours) — dérive de config Coolify sur
+     `supabase-tarjih`** : la colonne `docker_compose` en base et le fichier sur disque
+     divergent de 47 lignes (uniquement des `SERVICE_NAME_*` générés au déploiement, aucune
+     variable métier ni secret ni plafond en écart, mesuré non intrusif le 08/09). Reste
+     inexpliqué : la base porte `updated_at` 21 min après le dernier déploiement — un
+     changement fait en base le 03/09 16h43 sans redéploiement, qui prendrait effet au
+     prochain déploiement sans que personne ne l'ait relié à ce moment-là. Le signalement
+     demande explicitement à la session propriétaire (ici) une vérification non destructive.
+     Jamais traité dans une entrée de passation Tarjih.
+
+[NEXT]
+  1. L46 : comparer `docker_compose` en base (Coolify tinker/psql) au fichier disque du
+     service `f10v8td71bwii32blb9lalfk`, confirmer que le changement du 03/09 16h43 est voulu,
+     puis redéployer pour réaligner (non destructif jusqu'au redéploiement inclus, critère de
+     levée = 0 ligne divergente).
+  2. L28 : poser la mention d'éditeur sur `tarjih-os.com` (commande `mention-edition`, gabarit
+     selon la relation réelle avec AI-MPower), la prouver au navigateur, puis retirer la ligne
+     de l'index.
+  3. Rien d'autre d'entamé ; les alertes techniques de l'entrée « nuit » (ALERTE 1 pas 26,
+     flakiness n=1) restent une observation, pas un chantier.
+
+[CTX]
+  Session `018JVMAt…`, rattrapage de passation du 2026-09-16 nuit (id local `7c7a2023`).
+  Écart constaté par `git log dd06f3c..HEAD` contre le grep de `PASSATION.md` (aucune
+  occurrence de `e5abae3`/`57f6b07`/`SOP-026`) : la règle « synthèse récente en tête » n'avait
+  pas été honorée après ces deux commits. Reste inchangé : [CTX] des entrées précédentes.
+
+[MEMO]
+  1. **Un commit poussé n'est une passation qu'une fois écrit dans `PASSATION.md`** : deux
+     commits réels (sauvegarde prouvée, gate corrigée) sont restés invisibles à toute session
+     qui n'aurait lu que l'entête du fichier — vérifier `git log <dernier HEAD documenté>..HEAD`
+     fait partie de la lecture d'une passation, pas seulement la lecture du fichier.
+  2. **Un signalement inter-projets nommant le projet est une dette du projet tant qu'aucune
+     entrée de passation ne le mentionne** — L28 et L46 dormaient depuis respectivement un jour
+     et huit jours sans qu'aucune entrée ne les cite, malgré le grep des signalements déjà
+     pratiqué le 16/09 soir pour L53/L123.
+```
+
+---
+
 ## 2026-09-16 (nuit) : la gate Playwright est exigée par le système, sur un runner auto-hébergé, sans aucun secret chez GitHub ; PROUVÉE de bout en bout (run 35144957733 : déploiement, santé, 38/38)
 
 ```
