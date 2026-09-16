@@ -28,6 +28,15 @@ services:
     expose:
       - "8000"
     restart: unless-stopped
+    # Plafonds (SOP-020). Coolify n'injecte `limits_memory` que pour les build
+    # packs nixpacks/dockerfile/dockerimage : pour un compose, ce fichier est la
+    # seule source du plafond, et un plafond posé à chaud disparaît au
+    # déploiement suivant (constaté le 2026-09-14). Mesuré : ~10 Mio et 6 PIDs
+    # en service ; 256m laisse la marge d'un calcul de version large, le swap à
+    # 2x évite le plafond sans amortissement (MemorySwap == Memory).
+    mem_limit: 256m
+    memswap_limit: 512m
+    pids_limit: 128
     healthcheck:
       # `/health` ne consulte pas la clé de service : la sonde doit dire si le
       # processus vit, pas si la configuration est bonne — sinon un jeton absent
