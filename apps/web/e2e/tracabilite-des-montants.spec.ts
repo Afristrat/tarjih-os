@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { CONTRIBUTEUR, DAF, DG, connecter, surveillerLaConsole } from "./acteurs.ts";
+import { formulaire } from "./formulaire.ts";
 import { enCentimes, lire, somme } from "./montants.ts";
 
 /**
@@ -49,10 +50,6 @@ const CHARGES = [
 const TOTAL_ATTENDU_EN_CENTIMES = 3001;
 
 let adresseVersion = "";
-
-function formulaire(page: Page, bouton: string) {
-  return page.locator("form").filter({ has: page.getByRole("button", { name: bouton }) });
-}
 
 test.describe.configure({ mode: "serial" });
 

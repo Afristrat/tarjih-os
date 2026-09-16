@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { CONTRIBUTEUR, DAF, DG, connecter, surveillerLaConsole } from "./acteurs.ts";
+import { formulaire } from "./formulaire.ts";
 import { enCentimes, lire } from "./montants.ts";
 
 /**
@@ -88,13 +89,6 @@ let versionInducteurs = "";
 let versionCentreRefusee = "";
 let versionCentreValide = "";
 let versionReprise = "";
-
-// ponytail: quatrième copie de ce helper (parcours-vertical, export-rbac,
-// tracabilite l'ont déjà à l'identique) ; à extraire dans un module partagé au
-// cinquième fichier de recette, pas avant.
-function formulaire(page: Page, bouton: string) {
-  return page.locator("form").filter({ has: page.getByRole("button", { name: bouton }) });
-}
 
 /**
  * Ouvre une version dans le cycle de la recette. `origine` est la valeur du
