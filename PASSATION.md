@@ -4,6 +4,92 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-17 : L28 fermé et prouvé au navigateur/HTML rendu ; L46 diagnostiqué (cause trouvée), redéploiement en attente d'un feu vert
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`1af5a66`**, worktree PROPRE. Commits :
+              `adfa290` (rattrapage passation ci-dessus), `1af5a66` (mention d'éditeur).
+  Prod      : `tarjih-web` sur `1af5a66`, déployé par la gate (run `35159540169`), CI verte
+              (run `35159452206`), **recette 38/38**. `/mentions-legales` rend **200** avec le
+              texte exact (vérifié dans le HTML servi, pas seulement le code HTTP) ; le pied de
+              page de `/` et de `/login` portent désormais le rappel/lien.
+
+[FAIT]
+  1. **L28 fermé** : page `/mentions-legales` (gabarit A — relation `tarjih` = `detenu` dans
+     `plateformes.gouvernance.json` de la vitrine, lu en lecture seule, jamais écrit) avec
+     l'identité reprise en lecture seule de `sop-platform/lib/legal.ts` (Nahj, même éditeur,
+     même infra) : aucune valeur inventée. Rappel au pied de page de `/` (raison sociale, RC,
+     ICE) et lien depuis `/login`. Pas de politique de confidentialité ni de déclaration CNDP
+     publiée pour Tarjih à ce jour : la page le dit explicitement (nommé, pas comblé par une
+     invention) — reste un chantier distinct, non ouvert ici, à poser si un tenant réel
+     l'exige ou sur décision d'Amine.
+  2. **L46 diagnostiqué, cause identifiée sans redéployer** : la base Coolify de
+     `supabase-tarjih` ne déclare que 4 services (`db`, `kong`, `rest`, `auth`) — exactement
+     ceux gardés par le dégraissage Phase 2 du **2026-09-03** (mandat d'Amine, signalement
+     L67), à la minute de l'écart mesuré (`updated_at` 16h43). Le disque référence encore 16
+     noms de service (les services retirés ce jour-là) : c'est un redéploiement jamais fait
+     depuis cette édition, pas un changement non tracé. Comparaison faite sans imprimer aucune
+     valeur (clés seules, comptes de lignes).
+
+[ALERTE]
+  1. **L46 reste ouvert** : le diagnostic est fait et la cause connue (dégraissage du 03/09
+     jamais suivi d'un redéploiement), mais je n'ai PAS redéployé `supabase-tarjih` — c'est une
+     action sur la base de production du tenant réel (données réelles depuis le 07/09). Filet
+     de sauvegarde disponible et prouvé le jour même (`e5abae3`, SOP-026). En attente d'un feu
+     vert avant de lancer le redéploiement ; critère de levée = 0 ligne divergente après.
+  2. **Signalement inter-projets L28 à mettre à jour par sa session propriétaire** (Payment Hub,
+     `C:\projets\aimpower`, pas cette session — la ligne couvre aussi Assas/Nahda/Lawh) : voir
+     [NEXT] pour le texte prêt à coller dans `PASSATION-INDEX.md`.
+
+[NEXT]
+  1. Décider du redéploiement de `supabase-tarjih` pour clore L46 (diagnostic fait, non
+     destructif jusqu'ici ; le redéploiement lui-même touche la prod du tenant réel).
+  2. Retirer Tarjih de la ligne L28 de `PASSATION-INDEX.md` (propriétaire : session Payment
+     Hub/aimpower) — texte prêt à coller :
+     > Tarjih : mention d'éditeur posée et vérifiée le 2026-09-17
+     > (`https://tarjih-os.com/mentions-legales`, gabarit A, texte relevé au HTML rendu,
+     > langue française seule servie). Retirer Tarjih de cette ligne ; Assas, Nahda et Lawh
+     > restent à traiter par leurs sessions respectives.
+  3. Rendre à Amine, pour la fiche vitrine de Tarjih (`plateformes.json`, passage en
+     `VERIFIE`) :
+     > Plateforme : tarjih
+     > URL de la mention : https://tarjih-os.com/mentions-legales
+     > Texte relevé : « AIMPower SARL A.U. — Société à responsabilité limitée à associé
+     > unique, capital social 10 000 MAD — Registre du commerce : Casablanca, n° 618105 —
+     > ICE : 003438689000014 »
+     > Relevé le : 2026-09-17, HTML rendu (page statique Next.js, pas de rendu client)
+     > Langues vérifiées : fr (seule langue servie)
+  4. Rien d'autre d'entamé.
+
+[CTX]
+  Session `018JVMAt…` (id local `7c7a2023`), 2026-09-17. Fichiers neufs :
+  `apps/web/src/lib/legal.ts`, `apps/web/src/app/mentions-legales/page.tsx`. Modifiés :
+  `apps/web/src/app/page.tsx`, `apps/web/src/app/login/page.tsx`, `apps/web/src/app/globals.css`
+  (bloc `.legal`, cloisonné comme `.console` pour ne pas hériter l'échelle héroïque de `h1`/`h2`).
+  Diagnostic L46 par SSH (`serveuria@192.168.100.24`, clé `serveurai_mnemo`) : jamais de
+  redirection `sudo … > fichier` depuis le shell non privilégié (le shell ouvre le fichier
+  AVANT que `sudo` s'applique, `Permission non accordée` même si `sudo cat` marche) — utiliser
+  `sudo wc -l fichier` en argument, pas en entrée standard. `diff <(sudo docker exec …) <(…)`
+  a rendu un compte de lignes non fiable une fois (373 au lieu de 47) : préférer `wc -l` de
+  chaque côté et comparer les CLÉS (`grep -oE`) plutôt que la sortie brute de `diff` sur une
+  commande `sudo` en substitution de processus. wmux browser (`open`/`snapshot`/`get-text`)
+  a timeout à répétition ce jour : vérification faite sur le HTML servi (page statique, RSC
+  sans rendu client) en substitut, résultat fiable ici mais pas généralisable à une page dont
+  le pied de page se rend côté client (cf. mise en garde de la skill `mention-edition`).
+  Reste inchangé : [CTX] de l'entrée précédente.
+
+[MEMO]
+  1. **Un signalement inter-projets nommant plusieurs plateformes ne se retire jamais en bloc**
+     par une seule session : Tarjih ferme sa part, le texte prêt à coller nomme explicitement
+     ce qui reste (Assas, Nahda, Lawh) pour la session propriétaire.
+  2. **Une dérive de config « pourquoi lui seul » se résout souvent en croisant la date de
+     l'écart avec un autre signalement du même jour** (ici L67, dégraissage Phase 2) plutôt
+     qu'en cherchant une cause nouvelle.
+```
+
+---
+
 ## 2026-09-16 (nuit, suite) : filet de sauvegarde prouvé (SOP-026) et gate qui ne redéploie plus sur un push documentation seule — entrée de rattrapage, deux signalements ouverts identifiés
 
 ```
