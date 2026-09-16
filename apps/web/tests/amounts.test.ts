@@ -9,7 +9,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fromMicros, percentChange, subtractAmounts, sumAmounts, toMicros } from "../src/lib/budgets/amounts.ts";
+import {
+  amountFromRow,
+  formatAmount,
+  fromMicros,
+  percentChange,
+  subtractAmounts,
+  sumAmounts,
+  toMicros,
+} from "../src/lib/budgets/amounts.ts";
 
 test("un montant fait l'aller-retour sans rien perdre", () => {
   for (const montant of ["0.000000", "1234.560000", "-90000.000000", "10.005000", "0.000001"]) {
@@ -77,4 +85,24 @@ test("une variation sans base ne se calcule pas", () => {
   assert.equal(percentChange("0.000000", "10.000000"), null, "rapport à zéro");
   assert.equal(percentChange("oups", "10.000000"), null);
   assert.equal(percentChange("10.000000", ""), null);
+});
+
+test("un montant qui arrive en nombre est refusé : il a déjà perdu sa précision", () => {
+  // PostgREST sérialise un `numeric` en nombre JSON ; `JSON.parse` le fait
+  // passer par un double, et 123456789012345678.123457 devient
+  // 123456789012345680. Un `String()` après coup ne rend pas les chiffres perdus :
+  // le montant doit arriver en texte (`amount::text`), sinon c'est une erreur
+  // de programmation, pas une donnée à afficher.
+  assert.equal(amountFromRow("123456789012345678.123457", "budget_values.amount"), "123456789012345678.123457");
+  assert.throws(() => amountFromRow(123456789012345680, "budget_values.amount"), /budget_values\.amount.*texte/);
+  assert.throws(() => amountFromRow(null, "budget_value_sources.amount"), /budget_value_sources\.amount/);
+});
+
+test("un montant se met en forme sans passer par un flottant", () => {
+  // Au-delà de 2⁵³, `Number` arrondit ; la chaîne est donnée telle quelle à Intl.
+  assert.equal(formatAmount("123456789012345678.123457", "MAD"), "123 456 789 012 345 678,12 MAD");
+  assert.equal(formatAmount("1440000.000000", "MAD"), "1 440 000,00 MAD");
+  assert.equal(formatAmount("-0.5", "MAD"), "-0,50 MAD");
+  // Un texte qui n'est pas un montant est rendu tel quel, jamais « NaN ».
+  assert.equal(formatAmount("illisible", "MAD"), "illisible");
 });

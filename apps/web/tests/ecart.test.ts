@@ -91,3 +91,22 @@ test("un montant comparé reste une chaîne, et une absence reste une absence", 
   assert.equal(nouvelle.baseAmount, null);
   assert.equal(nouvelle.deltaPercent, null);
 });
+
+test("une comparaison dont les montants arrivent en nombre n’est pas relue", () => {
+  // Un `numeric` sérialisé en nombre JSON a déjà perdu ses décimales au-delà
+  // du double (« 20.0 » devient 20, et 18 chiffres significatifs en gardent
+  // 16). La requête demande du texte (`::text`) ; un nombre trahit son absence.
+  assert.equal(
+    asValueComparison({
+      account_id: "a",
+      base_amount: 1440000,
+      currency: "MAD",
+      delta: -400000,
+      delta_percent: -27.8,
+      dimension_id: "d",
+      period_id: "p",
+      target_amount: 1040000,
+    }),
+    null,
+  );
+});

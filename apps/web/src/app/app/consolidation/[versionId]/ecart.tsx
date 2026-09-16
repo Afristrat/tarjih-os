@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
 import { approveIdentical } from "@/app/app/consolidation/[versionId]/actions";
-import { percentChange, subtractAmounts, sumAmounts } from "@/lib/budgets/amounts";
+import { formatAmount, percentChange, subtractAmounts, sumAmounts } from "@/lib/budgets/amounts";
 import {
   countApprovable,
   summarizeOutcomes,
@@ -53,26 +53,14 @@ const OUTCOME_TONES: Record<ComparisonOutcome, "acquis" | "attente" | "refus"> =
   removed: "refus",
 };
 
-function formatAmount(amount: string | null, currency: string): string {
-  if (amount === null) {
-    return "—";
-  }
-  const parsed = Number(amount);
-  if (!Number.isFinite(parsed)) {
-    return amount;
-  }
-
-  return new Intl.NumberFormat("fr-FR", {
-    currency,
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-    style: "currency",
-  }).format(parsed);
+function formatAmountOrAbsent(amount: string | null, currency: string): string {
+  return amount === null ? "—" : formatAmount(amount, currency);
 }
 
 /**
- * Une variation à UNE décimale, toujours : la base la calcule ainsi, mais un
- * `numeric` traverse PostgREST en nombre JSON, et « 20.0 » y devient « 20 ».
+ * Une variation à UNE décimale, toujours. La base la calcule ainsi et la
+ * requête la demande en texte (`delta_percent::text`) ; la décimale est
+ * complétée par sûreté, pas par nécessité.
  */
 function formatPercent(percent: string | null): string {
   if (percent === null) {
@@ -158,9 +146,9 @@ function TotalRow({
       <th colSpan={3} scope="row">
         {label}
       </th>
-      <td className="amount-cell">{formatAmount(base, currency)}</td>
-      <td className="amount-cell">{formatAmount(target, currency)}</td>
-      <td className="amount-cell">{formatAmount(delta, currency)}</td>
+      <td className="amount-cell">{formatAmountOrAbsent(base, currency)}</td>
+      <td className="amount-cell">{formatAmountOrAbsent(target, currency)}</td>
+      <td className="amount-cell">{formatAmountOrAbsent(delta, currency)}</td>
       <td className="amount-cell">{formatPercent(percent)}</td>
     </tr>
   );
@@ -370,9 +358,9 @@ export function Ecart({
                   </td>
                   <td>{labels.accountLabels.get(row.accountId) ?? "—"}</td>
                   <td>{labels.periodLabels.get(row.periodId) ?? "—"}</td>
-                  <td className="amount-cell">{formatAmount(row.baseAmount, row.currency)}</td>
-                  <td className="amount-cell">{formatAmount(row.targetAmount, row.currency)}</td>
-                  <td className="amount-cell">{formatAmount(row.delta, row.currency)}</td>
+                  <td className="amount-cell">{formatAmountOrAbsent(row.baseAmount, row.currency)}</td>
+                  <td className="amount-cell">{formatAmountOrAbsent(row.targetAmount, row.currency)}</td>
+                  <td className="amount-cell">{formatAmountOrAbsent(row.delta, row.currency)}</td>
                   <td className="amount-cell">{formatPercent(row.deltaPercent)}</td>
                 </tr>
               ))}
