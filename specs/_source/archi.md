@@ -77,6 +77,8 @@ Elles sont `security definer`, fixent un `search_path` sûr et utilisent `auth.u
 
 Le rôle ne remplace pas les grants dimensionnels. Un administrateur technique n’obtient pas automatiquement l’accès financier.
 
+La confidentialité se joue par dimension et par rôle, jamais par hypothèse ni par scénario (décision du 16 septembre 2026 : « le DAF voit tout »). Concrètement, `has_dimension_permission` accorde aux rôles DAF et DG toutes les permissions sur toutes les dimensions du tenant sans passer par `dimension_grants` ; une dimension dédiée ne restreint donc que les contributeurs, et aucune donnée financière ne peut être réservée au seul DG. Un plan que le DAF ne doit pas voir n’a pas sa place dans Tarjih tel qu’il est ; si ce besoin est un jour mesuré chez un tenant réel, la voie est connue et courte (un drapeau de restriction sur la dimension, le rôle DAF exclu dans la fonction, un contrôle pgTAP), mais elle ne s’ouvre pas sans ce besoin.
+
 L’administration est un drapeau (`is_tenant_admin`) orthogonal au rôle, pas un rôle de plus : un même membre peut être DG **et** administrateur de son tenant — c’est le cas du tenant réel, où le DG administre (décision du 13 septembre 2026). La séparation que la matrice exprime est celle-ci : le pouvoir financier n’emporte pas l’administration, et l’administration n’emporte pas le pouvoir financier ; elle n’interdit pas de détenir les deux.
 
 ## Authentification
