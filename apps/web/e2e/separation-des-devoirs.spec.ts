@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { CONTRIBUTEUR, DAF, connecter, surveillerLaConsole } from "./acteurs.ts";
+import { formulaire } from "./formulaire.ts";
 
 /**
  * La séparation des devoirs est VISIBLE, pas imposée — vérifié dans un
@@ -28,10 +29,6 @@ const JOUR = new Date(Date.UTC(2033, 0, 1) + (MARQUE % 3000) * 86_400_000)
   .slice(0, 10);
 
 let adresseVersion = "";
-
-function formulaire(page: Page, bouton: string) {
-  return page.locator("form").filter({ has: page.getByRole("button", { name: bouton }) });
-}
 
 async function proposer(page: Page, parametre: string, montant: string): Promise<void> {
   const proposition = formulaire(page, "Proposer");

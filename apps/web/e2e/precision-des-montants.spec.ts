@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { CONTRIBUTEUR, DAF, DG, connecter, surveillerLaConsole } from "./acteurs.ts";
+import { formulaire } from "./formulaire.ts";
 import { lire } from "./montants.ts";
 
 /**
@@ -39,10 +40,6 @@ const MONTANT_AFFICHE_EN_DOUBLE = "98 765 432 109 876,55 MAD";
 const PART_EN_MICRO_UNITES = BigInt("98765432109876543210");
 
 let adresseVersion = "";
-
-function formulaire(page: Page, bouton: string) {
-  return page.locator("form").filter({ has: page.getByRole("button", { name: bouton }) });
-}
 
 /** Les espaces qu'`Intl` produit (insécable, insécable étroite) ramenées à une espace. */
 function normaliser(texte: string | null): string {

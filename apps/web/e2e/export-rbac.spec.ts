@@ -1,7 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
 
 import { CONTRIBUTEUR, DAF, INTRUS, connecter, surveillerLaConsole } from "./acteurs.ts";
+import { formulaire } from "./formulaire.ts";
 
 /**
  * Ce qu'un export emporte, vérifié dans un navigateur sur le domaine déployé.
@@ -37,10 +38,6 @@ const JOUR = new Date(Date.UTC(2031, 0, 1) + (MARQUE % 3000) * 86_400_000)
 const TYPE_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 let versionId = "";
-
-function formulaire(page: Page, bouton: string) {
-  return page.locator("form").filter({ has: page.getByRole("button", { name: bouton }) });
-}
 
 test.describe.configure({ mode: "serial" });
 

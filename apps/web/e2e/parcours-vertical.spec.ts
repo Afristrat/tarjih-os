@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   CONTRIBUTEUR,
@@ -8,6 +8,7 @@ import {
   connecter,
   surveillerLaConsole,
 } from "./acteurs.ts";
+import { formulaire } from "./formulaire.ts";
 
 /**
  * Le parcours vertical de Tarjih, joué dans un navigateur, sur le domaine
@@ -58,10 +59,6 @@ const SOMME_DES_DEUX = /2\s?200,49/;
 
 /** Renseigné par l'étape 2, consommé par toutes les suivantes. */
 let adresseVersion = "";
-
-function formulaire(page: Page, bouton: string) {
-  return page.locator("form").filter({ has: page.getByRole("button", { name: bouton }) });
-}
 
 test.describe.configure({ mode: "serial" });
 

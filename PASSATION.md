@@ -4,22 +4,24 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
-## 2026-09-16 — ALERTES 1 et 8 FERMÉES, l'export porte les origines, l'échec de connexion est situé hors du serveur
+## 2026-09-16 — ALERTES 1, 5 et 8 FERMÉES ; clé technique supprimée ; l'échec de connexion est situé hors du serveur
 
 ```
 [ETAT]
-  Repo      : `HEAD` == `origin/master` == **`b21b272`** (+ entrée documentaire), worktree PROPRE.
-  Prod      : `tarjih-web` sur **`b21b272`** (`healthy`) · `tarjih-calculation` sur `9abc801`.
+  Repo      : `HEAD` == `origin/master` == **`bc34c7b`** (+ extraction `formulaire.ts` + entrée
+              documentaire), worktree PROPRE.
+  Prod      : `tarjih-web` sur **`bc34c7b`** (`healthy`) · `tarjih-calculation` sur `9abc801`.
   Base prod : **migration `20260916120000 annotate_hypotheses` APPLIQUÉE** (rollback éprouvé en
               transaction annulée avant : colonne 0, registre 0 ; puis `-1`), 12 migrations au
               registre, **174 pgTAP verts contre la production** (13 fichiers, dont `13` 12/12).
-  CI        : verte sur `a33e0c8`, `c186c6b`, `9bab5d6`, `c799a1f`, `b21b272` (3 jobs ; base
-              vide : 12 migrations, 174 contrôles, 11 rollbacks, schéma identique à l'octet).
-  Gates     : typecheck 0 (tsc + mypy) · lint 0 · **88 Node** (+5) · 43 Python · build OK ·
-              **Playwright 35 pas, tous verts contre `https://tarjih-os.com`** : sur `a33e0c8`
-              (34/35 + 5/5 après correction de MA recette), sur `c799a1f` (35/35, 5,7 min), sur
-              `b21b272` (35/35, 6,6 min).
-  Tasks     : 01→10 ✅. ALERTES 1 et 8 fermées, 5 (partie technique) fermée. 4 fermée (15/09).
+  CI        : verte jusqu'à `bc34c7b` (3 jobs ; base vide : 12 migrations, 174 contrôles,
+              11 rollbacks, schéma identique à l'octet).
+  Gates     : typecheck 0 (tsc + mypy) · lint 0 · **91 Node** (+8) · 43 Python · build OK ·
+              **Playwright 38 pas (6 recettes), tous verts contre `https://tarjih-os.com` sur
+              `bc34c7b`** (7,5 min), **rejoués 38/38 après l'extraction de `formulaire.ts`** (6,5 min).
+  Coffre    : **`TARJIH_ADMIN_TECHNIQUE` SUPPRIMÉE** (double autorisation SOP-001, « oui »
+              d'Amine, 337 → 336 clés, sauvegarde `secrets.env.dpapi.bak-20260916-134411`).
+  Tasks     : 01→10 ✅. ALERTES 1, 4, 5, 8 fermées. Restent 9 (non ouverte) et 10 (décision).
 
 [FAIT]
   1. **ALERTE 1 fermée (`a33e0c8`)** — et la passation du 15/09 la MINORAIT (« sans conséquence
@@ -80,22 +82,37 @@
      proposition et la correction ; « Justification de l'auteur » sur l'écran de décision
      (`.hypothesis-note`, `white-space: pre-line`). Recette `parcours-vertical` : l'auteur
      écrit une note, le DAF la lit avant de décider.
-  5. Résidus soldés : Mnemo `store_memory` (atome `edcf29d2…`, cercle `PASSATION Tarjih`) ;
+  5. **ALERTE 5, partie produit, fermée (`bc34c7b`) — décision d'Amine : « visible ».**
+     Séparation des devoirs rendue visible, pas imposée (un tenant peut n'avoir qu'un membre
+     habilité). `lib/budgets/self-decisions.ts` : prédicat pur `selfDecidedHypotheses`
+     (3 tests) + `SELF_DECIDED_LABEL` = « Décidée par son auteur ». Badge `state-tag`
+     `data-tone="vigilance"` (nouveau ton, CSS + commentaire de `scope.ts` ajusté) sur chaque
+     décision de la page de détail où `decided_by = proposed_by`, et sur la ligne de la liste
+     de la version (lecture de `proposed_by` + des `hypothesis_decisions` des lignes décidées,
+     sous la RLS du lecteur). PRD : cas limite obligatoire ajouté. Recette
+     `separation-des-devoirs` (3 pas) : le DAF approuve sa ligne (badge sur la décision et sur
+     la liste) puis celle du contributeur (aucun badge).
+  6. **Dette déclenchée puis soldée** : le marqueur `ponytail` de `modeles-de-calcul.spec.ts`
+     fixait l'extraction de `formulaire()` « au cinquième fichier de recette » ; les recettes 5
+     et 6 sont nées aujourd'hui → `e2e/formulaire.ts` partagé, six copies retirées, marqueur
+     retiré. Marqueurs `ponytail` restants (2) : `hypothesis-value.ts:180` (multi-périodes,
+     plafond et déclencheur toujours valides) et `20260809090100…sql:72` (résolu par
+     `20260902120000`, migration immuable).
+  7. Résidus soldés : Mnemo `store_memory` (atome `edcf29d2…`, cercle `PASSATION Tarjih`) ;
      brouillon SOP-030 copié hors `%TEMP%` vers
      `C:\Users\amans\OneDrive\Projets\SOP-brouillons\SOP-030-chaine-de-gates-exigee-par-le-systeme.md`
      (id et titre renumérotés) et signalé à la session sop dans `PASSATION-INDEX.md` (L28).
-  6. Coffre : temps 1 de `add-secret.ps1 -Remove -Name TARJIH_ADMIN_TECHNIQUE` exécuté
-     (rapport, jeton `cd5496c6`, rien écrit) ; jeton expiré à 00:43 — à régénérer sur le « oui ».
+  8. Coffre : `TARJIH_ADMIN_TECHNIQUE` supprimée en deux temps (jeton `62df0dac`), coffre
+     réécrit et revalidé par le loader, `secrets.index` régénéré (336), mémoire projet
+     `reference-inventaire-cles-tarjih.md` mise à jour. Le compte reste banni en base.
 
 [ALERTE]
   1. ~~`numeric` via PostgREST~~ FERMÉE (cf. [FAIT] 1). L'export (`route.ts`) l'avait déjà.
-  2. `TARJIH_ADMIN_TECHNIQUE` : toujours au coffre, attend un « oui » (SOP-001 §8quater).
-  3. Toujours ouverts, et ce sont des DÉCISIONS, plus des chantiers : ALERTE 5 partie produit
-     (séparation des devoirs : proposition du 13/09, rendre visible « décidée par son auteur »
-     plutôt qu'interdire — le tenant réel a un membre) ; 10 (RBAC par dimension : un scénario
-     confidentiel exige une dimension dédiée — à trancher avant tout client réel) ; 9 (scénarios
-     parallèles : non ouvert, aucun tenant ne l'a mesuré, anti-pattern « avant nécessité
-     prouvée »).
+  2. ~~`TARJIH_ADMIN_TECHNIQUE`~~ SUPPRIMÉE ce jour.
+  3. Toujours ouverts, et ce sont des DÉCISIONS, plus des chantiers : **ALERTE 10** (RBAC par
+     dimension : un scénario confidentiel exige une dimension dédiée — Amine n'a pas répondu à
+     ce point le 16/09, il reste à trancher avant tout client réel) ; 9 (scénarios parallèles :
+     non ouverte, aucun tenant ne l'a mesuré, anti-pattern « avant nécessité prouvée »).
   4. Bruit vu en passant dans `coolify-proxy` : ACME 429 en boucle pour `nizam-os.com`,
      `api.nizam-os.com`, `nahj.ma`, `coolify.ai-mpower.com` (15/09 19:57Z) — hors périmètre
      Tarjih, non traité ici ; à signaler à la session infra si pas déjà connu.
@@ -103,20 +120,20 @@
      `Select-String`) : lire la ligne de bilan, pas le code de sortie du broker.
 
 [NEXT]
-  1. Trois mots d'Amine, chacun préparé jusqu'au dernier écran :
-     · « oui » → `add-secret.ps1 -Remove -Name TARJIH_ADMIN_TECHNIQUE` (temps 1 à rejouer,
-       jeton, temps 2) ;
-     · ALERTE 5 produit : « visible » → badge « décidée par son auteur » sur la décision et la
-       ligne (`decided_by = proposed_by`), une recette ; « interdire » → garde dans
-       `decide_hypothesis` (42501) + pgTAP ; « rien » → alerte close ;
-     · ALERTE 10 : « dimension dédiée suffit » → alerte close, documentée dans `archi.md` ;
-       sinon cadrage d'un RBAC par scénario (chantier, pas une session).
-  2. Rien d'autre d'entamé. Prochain chantier technique seulement sur besoin mesuré (ALERTE 9).
+  1. **ALERTE 10, un mot d'Amine** : « dimension dédiée suffit » → alerte close, documentée dans
+     `specs/_source/archi.md` (matrice RBAC) ; sinon cadrage d'un RBAC par scénario (chantier
+     de plusieurs sessions, à ne pas ouvrir sans ce mot).
+  2. Rien d'autre d'entamé. Prochain chantier technique seulement sur besoin mesuré (ALERTE 9),
+     ou sur les vrais chiffres d'Afrique Stratégie (version SUIVANTE du tenant réel, jamais une
+     correction).
 
 [CTX]
   Session `018JVMAt…` (reprise après /clear, id local `77964096`), 2026-09-16. Commits :
   `a33e0c8` (ALERTE 1), `c186c6b`, `9bab5d6` (recette), `be9d146` (doc), `c799a1f` (export
-  origines), `b21b272` (ALERTE 8). Fichiers neufs : `apps/web/e2e/precision-des-montants.spec.ts`,
+  origines), `b21b272` (ALERTE 8), `44f14b4` (doc), `bc34c7b` (ALERTE 5 visible), puis
+  l'extraction `formulaire.ts` et cette entrée. Fichiers neufs :
+  `apps/web/e2e/precision-des-montants.spec.ts`, `apps/web/e2e/separation-des-devoirs.spec.ts`,
+  `apps/web/e2e/formulaire.ts`, `apps/web/src/lib/budgets/self-decisions.ts` (+ test),
   `supabase/migrations/20260916120000_annotate_hypotheses.sql` (+ rollback + `tests/13_…`).
   Appliquer une migration en prod : `cat migration.sql | ssh … 'docker exec -i
   supabase-db-f10v8td71bwii32blb9lalfk psql -U postgres -d postgres --set=client_encoding=UTF8
@@ -139,6 +156,9 @@
      `chr(92)`, et se vérifient à l'octet (`od -c`), pas à l'œil.
   5. **Exonérer un serveur se prouve par le trafic des AUTRES** : si des scanners passaient
      par le même tunnel à la seconde de l'échec, l'origine n'était pas la cause.
+  6. **Un marqueur `ponytail` avec déclencheur est une dette à échéance** : le déclencheur
+     (« cinquième fichier ») s'est produit sous ma main ; le vérifier à chaque fichier neuf,
+     pas au `/ponytail-debt` suivant.
 ```
 
 ---
