@@ -48,7 +48,7 @@ export default async function HypothesisPage({
 
   const { data: hypothesis, error: hypothesisError } = await supabase
     .from("hypotheses")
-    .select("id, version_id, dimension_id, parameter_key, value, unit, status, row_version, proposed_by, created_at, updated_at")
+    .select("id, version_id, dimension_id, parameter_key, value, unit, status, row_version, proposed_by, created_at, updated_at, note")
     .eq("tenant_id", context.tenantId)
     .eq("id", id)
     .maybeSingle();
@@ -129,6 +129,9 @@ export default async function HypothesisPage({
 
   const canCorrect =
     pending && mine && !frozen && hasDimensionPermission(context, grants, hypothesis.dimension_id, "contribute");
+
+  // La justification de l'auteur : celui qui décide la lit AVANT de décider.
+  const note = typeof hypothesis.note === "string" ? hypothesis.note : null;
   const canDecide =
     pending && !frozen && hasDimensionPermission(context, grants, hypothesis.dimension_id, "approve");
 
@@ -204,6 +207,10 @@ export default async function HypothesisPage({
                 <label>
                   Unité
                   <input name="unit" required maxLength={32} defaultValue={hypothesis.unit} />
+                </label>
+                <label>
+                  Justification (facultative)
+                  <textarea name="note" maxLength={2000} rows={3} defaultValue={note ?? ""} />
                 </label>
                 <button className="console-button" type="submit">
                   Corriger
@@ -314,6 +321,14 @@ export default async function HypothesisPage({
             </dd>
             <dt>Période visée</dt>
             <dd>{periodLabel}</dd>
+            <dt>Justification de l’auteur</dt>
+            <dd className="hypothesis-note">
+              {note ?? (
+                <span className="member-scope" data-scope="aucune">
+                  Aucune — l’auteur n’a pas dit pourquoi.
+                </span>
+              )}
+            </dd>
             <dt>Révision</dt>
             <dd>
               {hypothesis.row_version} — chaque écriture succède à la précédente, jamais ne la

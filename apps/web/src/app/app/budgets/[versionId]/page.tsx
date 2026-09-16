@@ -295,6 +295,14 @@ export default async function BudgetVersionPage({
                   Unité
                   <input name="unit" required maxLength={32} defaultValue={context.baseCurrency} />
                 </label>
+                {/* Pourquoi ce terme. Le seul texte libre était jusqu'ici le
+                    motif du DÉCIDEUR ; celui qui construit n'avait nulle part où
+                    dire « 16 consultants × 20 jours ». La note suit la ligne,
+                    hors calcul et hors empreinte d'entrée. */}
+                <label data-span="full">
+                  Justification (facultative)
+                  <textarea name="note" maxLength={2000} rows={3} />
+                </label>
                 <button className="console-button" type="submit">
                   Proposer
                 </button>
