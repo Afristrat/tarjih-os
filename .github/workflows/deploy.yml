@@ -5,12 +5,13 @@
 # télescopent plus sur les tenants e2e, et une poussée pendant une recette
 # attend son tour au lieu de l'annuler (cancel-in-progress: false).
 #
-# Le workflow est INERTE tant que la variable de dépôt TARJIH_GATE_E2E ne vaut
-# pas « true » : l'activer suppose cinq secrets de dépôt (TARJIH_E2E_PW_CONTRIB,
-# TARJIH_E2E_PW_DAF, TARJIH_E2E_PW_DG, TARJIH_E2E_PW_INTRUS, COOLIFY_API_TOKEN à
-# portée read+deploy seulement, jeton `tarjih-ci-deploy-2026-09-16`) et la
-# variable COOLIFY_URL. Tant qu'il est inerte, la recette se joue depuis le
-# poste par le broker de secrets, et c'est une dette de validation, pas un état.
+# Aucun secret chez GitHub (décision du 16 septembre 2026). Le job tourne sur le
+# runner auto-hébergé `serveuria-tarjih-1` (service Coolify `tarjih-ci-runner`,
+# dédié à ce dépôt, sans docker.sock ni réseau hôte) et lit ses secrets dans
+# `/run/tarjih/runner.env`, fichier root 0600 de `serveuria` monté en lecture
+# seule : jeton Coolify à portée read+deploy seulement et mots de passe des
+# quatre comptes de recette. Chaque étape le charge dans son propre shell ; rien
+# ne transite par GITHUB_ENV ni par les journaux.
 name: Déploiement
 
 on:
@@ -25,31 +26,27 @@ concurrency:
 
 jobs:
   deployer-puis-recetter:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.TARJIH_GATE_E2E == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, tarjih]
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Déployer le moteur et le web
-        env:
-          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
-          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
         run: |
           set -euo pipefail
+          set -a; . /run/tarjih/runner.env; set +a
           # POST : la version installée (4.3.19) accepte GET et POST, les suivantes exigent POST.
           reponse=$(curl -sS -f -X POST -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
             "$COOLIFY_URL/api/v1/deploy?uuid=tuxybsaq9adb6txew2rc6zkr,l3fov9fbnjvrgt5ly75b7g5r&force=false")
           echo "$reponse" | jq -r '.deployments[] | "\(.resource_uuid) \(.deployment_uuid)"' | tee deployments.txt
 
       - name: Attendre que les deux déploiements soient terminés et sains
-        env:
-          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
-          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
         run: |
           set -euo pipefail
+          set -a; . /run/tarjih/runner.env; set +a
           restants=1
           for i in $(seq 1 60); do
             restants=0
@@ -84,9 +81,7 @@ jobs:
         working-directory: apps/web
       - name: Recette Playwright contre la production
         working-directory: apps/web
-        env:
-          TARJIH_E2E_PW_CONTRIB: ${{ secrets.TARJIH_E2E_PW_CONTRIB }}
-          TARJIH_E2E_PW_DAF: ${{ secrets.TARJIH_E2E_PW_DAF }}
-          TARJIH_E2E_PW_DG: ${{ secrets.TARJIH_E2E_PW_DG }}
-          TARJIH_E2E_PW_INTRUS: ${{ secrets.TARJIH_E2E_PW_INTRUS }}
-        run: npm run test:e2e
+        run: |
+          set -euo pipefail
+          set -a; . /run/tarjih/runner.env; set +a
+          npm run test:e2e
