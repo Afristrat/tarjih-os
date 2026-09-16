@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { CONTRIBUTEUR, DAF, DG, connecter, surveillerLaConsole } from "./acteurs.ts";
+import { lire } from "./montants.ts";
 
 /**
  * Un montant publié garde tous ses chiffres jusqu'à l'écran — vérifié dans un
@@ -34,7 +35,8 @@ const JOUR = new Date(Date.UTC(2031, 0, 1) + (MARQUE % 3000) * 86_400_000)
 const MONTANT_SAISI = "98765432109876,543210";
 const MONTANT_AFFICHE = "98 765 432 109 876,54 MAD";
 const MONTANT_AFFICHE_EN_DOUBLE = "98 765 432 109 876,55 MAD";
-const PART_AFFICHEE = "98 765 432 109 876,543210 MAD";
+/** La part d'origine, en micro-unités : le moteur la rend exacte, à l'échelle qu'il veut. */
+const PART_EN_MICRO_UNITES = BigInt("98765432109876543210");
 
 let adresseVersion = "";
 
@@ -163,10 +165,16 @@ test.describe("Un montant publié garde tous ses chiffres jusqu'à l'écran", ()
       MONTANT_AFFICHE,
     );
 
-    // La part d'origine, jamais arrondie, porte les six décimales saisies.
+    // La part d'origine, jamais arrondie, vaut exactement le montant saisi.
+    // `budget_value_sources.amount` est un `numeric` sans échelle imposée : le
+    // moteur rend « …,54321 » pour « …,543210 », même valeur. C'est la valeur
+    // qui est jugée, en entiers, pas sa graphie.
     await lignes.first().locator("details.origin-details > summary").click();
-    const part = lignes.first().locator(".origin-list .origin-share").first();
-    expect(normaliser(await part.textContent())).toBe(PART_AFFICHEE);
+    const part = lire(
+      await lignes.first().locator(".origin-list .origin-share").first().textContent(),
+    );
+    expect(part.echelle, "la part porte plus de six décimales").toBeLessThanOrEqual(6);
+    expect(part.valeur * BigInt(10) ** BigInt(6 - part.echelle)).toBe(PART_EN_MICRO_UNITES);
 
     expect(erreurs(), "erreurs de console sur l'écran de consolidation").toEqual([]);
   });
