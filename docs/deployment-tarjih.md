@@ -125,6 +125,22 @@ Les comptes de recette sont posés par `supabase/seed/e2e-recette.sql` (réexéc
 
 **Créer un compte directement en SQL exige de renseigner `confirmation_token`, `recovery_token`, `email_change_token_new` et `email_change` à la chaîne vide.** GoTrue les lit dans des chaînes Go non nullables : laissées à `NULL`, l’authentification échoue en `500 Database error querying schema` et l’interface n’affiche qu’un banal « identifiants incorrects ».
 
+## Sauvegarde de la base (SOP-026)
+
+La base de production (`supabase-db-f10v8td71bwii32blb9lalfk`, base `postgres`) est sauvegardée par le projet lui-même, en plus du dump global du parc, parce que ce dernier **ne se restaure pas** : mesuré le 16 septembre 2026 sur les données de Tarjih, le `pg_dumpall` SQL nocturne (`/data/backups/pg/`, 90 Mo) restauré dans un cluster neuf de l’image de production rend zéro ligne, zéro fonction, zéro déclencheur, zéro policy (60 erreurs : les schémas `auth` et `storage` pré-initialisés par l’image font échouer les `COPY`, puis `psql` lit les données comme du SQL). Le même instant en `pg_dump -Fc`, restauré `--clean --if-exists --no-owner --no-privileges`, rend la production à l’identique.
+
+Source de vérité : `scripts/sauvegarde/` ; sur l’hôte : `$HOME/ops/tarjih/` (arborescence plate, empreintes SHA-256 des scripts inscrites dans chaque statut, à comparer au dépôt).
+
+| Pièce | Où | Quand | Ce qu’elle prouve |
+|---|---|---|---|
+| `sauvegarde-tarjih.sh` | cron `serveuria` 03:10 | chaque nuit | `pg_dump -Fc` (1 Mo, 1,5 s) avec ses **comptes** écrits à côté (`comptes.sql` : 22 compteurs, dont la somme exacte des montants, les fonctions, déclencheurs et policies) ; chiffré `gpg` pour la clé publique `tarjih-sauvegarde.pub` ; rotation GFS 7 quotidiens, 8 hebdomadaires, 12 mensuels (date lue dans le nom) ; copie hors site du seul `.gpg` (`serveuria-backups/tarjih/` sur la machine qui reçoit déjà celles du parc, jamais le clair) ; statut `/data/backups/tarjih/last-status.json` |
+| `sauvegarde-tarjih-verif.sh` | cron `serveuria` 04:50 | chaque jour | restaure le dernier dump dans un **témoin neuf** (même image, sans réseau, 2 Go, détruit dans tous les cas, ~11 s) et compare ses comptes à ceux du dump ; refuse un dump de plus de 26 h ; statut `/data/backups/tarjih-drill/last-status.json` |
+| `verif-distante.ps1` → `verif-distante.sh` | tâche planifiée du poste « Tarjih - exercice de restauration distante », le 2 de chaque mois 09:30 | chaque mois | lit la dernière copie **distante** à travers l’hôte, la déchiffre sur le poste avec la clé privée du coffre (`TARJIH_SAUVEGARDE_GPG_PRIVEE_B64`, jamais sur l’hôte), renvoie le clair en `/tmp` de l’hôte, joue l’exercice (`distant`), efface ; journal `%LOCALAPPDATA%	arjiherif-distante.log`, statut `last-status-distant.json` |
+
+`docker-watch` (session infra) lit tout `/data/backups/*/last-status.json` : un statut autre que `ok`, ou plus vieux que 48 h, part en alerte ; c’est pour cela que l’exercice est quotidien. Chemins d’échec exercés le 16 septembre 2026, chacun avec sa cause nommée : `dump_perime_30h`, `comptes_divergents`, `aucun_dump`, `conteneur_non_unique`, `chiffre_pour_une_autre_cle`.
+
+Ce que ce filet ne couvre pas : les rôles du cluster (l’image les recrée), Supabase Storage (non utilisé), et la bascule en production d’un témoin restauré (runbook distinct). Rotation de la clé gpg : nouvelle paire sur le poste, privée au coffre, publique dans `scripts/sauvegarde/` et importée sur l’hôte, `EMPREINTE_GPG` et `SOUS_CLE_CHIFFREMENT` du script mis à jour ; les anciens `.gpg` restent lisibles avec l’ancienne clé tant qu’elle est au coffre.
+
 ## Preuves de fonctionnement
 
 - application Coolify : `running:healthy` sur l’image `21b4ed6` ;

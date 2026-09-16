@@ -206,7 +206,7 @@ Les index sont créés dans les migrations ordinaires. `CREATE INDEX CONCURRENTL
 - clé `service_role` uniquement côté serveur, et évitée dans les chemins utilisateurs ordinaires ;
 - contrat de service Python authentifié séparément ;
 - aucun payload financier complet dans les logs ;
-- sauvegardes et restauration testées avant ouverture à des données réelles.
+- sauvegardes et restauration prouvées par un exercice quotidien de restauration dans un cluster témoin, et un exercice mensuel depuis la copie hors site chiffrée (`docs/deployment-tarjih.md`, « Sauvegarde de la base ») ; le dump global du parc ne compte pas comme filet : il ne se restaure pas.
 
 ## Décisions différées
 
