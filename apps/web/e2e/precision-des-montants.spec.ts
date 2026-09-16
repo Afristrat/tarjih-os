@@ -46,7 +46,7 @@ function formulaire(page: Page, bouton: string) {
 
 /** Les espaces qu'`Intl` produit (insécable, insécable étroite) ramenées à une espace. */
 function normaliser(texte: string | null): string {
-  return (texte ?? "").replace(/[  ]/g, " ").trim();
+  return (texte ?? "").replace(/[\u00A0\u202F]/g, " ").trim();
 }
 
 test.describe.configure({ mode: "serial" });
