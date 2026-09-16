@@ -72,6 +72,18 @@ function ligne(dimension: string, montant: string): ExportRow {
     dimension,
     dimensionId: dimension === "Opérations" ? AUTORISEE : LISIBLE_NON_EXPORTABLE,
     period: "2026-01-01 → 2026-03-31",
+    sources: [],
+  };
+}
+
+/** Une ligne dont le montant vient de deux hypothèses, comme à l'écran. */
+function ligneTracee(): ExportRow {
+  return {
+    ...ligne("Opérations", "30.010000"),
+    sources: [
+      { amount: "10.005", label: "trace_premiere" },
+      { amount: "20.005", label: "trace_seconde" },
+    ],
   };
 }
 
@@ -211,4 +223,35 @@ test("un montant garde toutes ses décimales, sans passer par un flottant", asyn
     texte.includes("10.005000"),
     "un montant publié est un numeric(24,6) : l'export le transporte tel quel",
   );
+});
+
+test("l'export porte l'origine de chaque montant, dans une feuille « Origines »", async () => {
+  // « Chaque chiffre publié dit d'où il vient » s'arrêtait à l'écran : le
+  // classeur remis au DG était aveugle. Une ligne par part, jamais arrondie,
+  // dont la somme est le montant de la feuille « Consolidation ».
+  const fichier = await buildWorkbook([ligneTracee()]);
+  const entrees = unzipSync(new Uint8Array(fichier));
+  const classeur = strFromU8(entrees["xl/workbook.xml"]);
+
+  assert.ok(classeur.includes('name="Consolidation"'), "la feuille des montants reste la première");
+  assert.ok(classeur.includes('name="Origines"'), "aucune feuille « Origines »");
+
+  const origines = strFromU8(entrees["xl/worksheets/sheet2.xml"]);
+  const texte = texteDuClasseur(fichier);
+  for (const attendu of ["trace_premiere", "trace_seconde", "10.005", "20.005"]) {
+    assert.ok(texte.includes(attendu), `« ${attendu} » manque au classeur`);
+  }
+  assert.ok(!origines.includes("<f>"), "aucune cellule d'origine ne doit porter de formule");
+});
+
+test("une origine dont le libellé ressemble à une formule reste du texte", async () => {
+  const fichier = await buildWorkbook([
+    {
+      ...ligneTracee(),
+      sources: [{ amount: "30.010000", label: '=HYPERLINK("http://exemple.test")' }],
+    },
+  ]);
+  const entrees = unzipSync(new Uint8Array(fichier));
+
+  assert.ok(!strFromU8(entrees["xl/worksheets/sheet2.xml"]).includes("<f>"));
 });

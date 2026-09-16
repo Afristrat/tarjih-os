@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import { requireActiveTenant } from "@/lib/auth/session";
 import { type DimensionGrantRow, type DimensionRow } from "@/lib/budgets/scope";
 import { exportableDimensions, scopeHash } from "@/lib/exports/scope";
-import { buildWorkbook, type ExportRow } from "@/lib/exports/workbook";
+import { buildWorkbook, type ExportRow, type ExportSource } from "@/lib/exports/workbook";
 import { createClient } from "@/lib/supabase/server";
 
 const TYPE_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -103,7 +103,7 @@ export async function GET(
   // classeur écrit — `workbook.ts` n'accepte que du texte, pour cette raison.
   const { data: rawValues, error: valuesError } = await supabase
     .from("budget_values")
-    .select("dimension_id, account_id, period_id, amount::text, currency")
+    .select("id, dimension_id, account_id, period_id, amount::text, currency")
     .eq("tenant_id", tenant.tenantId)
     .eq("version_id", versionId)
     .in("dimension_id", idsAutorises);
@@ -112,10 +112,38 @@ export async function GET(
     return refus("Export indisponible pour cette version.", 404);
   }
 
-  const [accountsResult, periodsResult] = await Promise.all([
+  // Les origines ne sont demandées que pour les montants DÉJÀ retenus : le
+  // périmètre est décidé une fois, ci-dessus, et les parts en héritent par
+  // l'identifiant du montant — jamais par une seconde règle qui pourrait
+  // diverger de la première.
+  const idsMontants: string[] = [];
+  for (const row of rawValues ?? []) {
+    const id = isRecord(row) ? texte(row.id) : null;
+    if (id) {
+      idsMontants.push(id);
+    }
+  }
+
+  const [accountsResult, periodsResult, sourcesResult, hypothesesResult] = await Promise.all([
     supabase.from("financial_accounts").select("id, code, name").eq("tenant_id", tenant.tenantId),
     supabase.from("periods").select("id, starts_on, ends_on").eq("tenant_id", tenant.tenantId),
+    idsMontants.length > 0
+      ? supabase
+          .from("budget_value_sources")
+          .select("budget_value_id, hypothesis_id, amount::text")
+          .eq("tenant_id", tenant.tenantId)
+          .in("budget_value_id", idsMontants)
+      : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("hypotheses")
+      .select("id, parameter_key")
+      .eq("tenant_id", tenant.tenantId)
+      .eq("version_id", versionId),
   ]);
+
+  if (sourcesResult.error || hypothesesResult.error) {
+    return refus("Export indisponible pour cette version.", 404);
+  }
 
   const nomDimension = new Map(autorisees.map((dimension) => [dimension.id, dimension.name]));
 
@@ -139,11 +167,39 @@ export async function GET(
     }
   }
 
+  const cleHypothese = new Map<string, string>();
+  for (const row of hypothesesResult.data ?? []) {
+    const id = isRecord(row) ? texte(row.id) : null;
+    const cle = isRecord(row) ? texte(row.parameter_key) : null;
+    if (id && cle) {
+      cleHypothese.set(id, cle);
+    }
+  }
+
+  // Une origine illisible est une anomalie du même ordre qu'un montant
+  // illisible : comptée, et l'export refusé plus bas. Une hypothèse dont la clé
+  // manque n'est pas masquée — son identifiant vaut mieux qu'une part disparue.
+  const originesParMontant = new Map<string, ExportSource[]>();
+  let originesLues = 0;
+  for (const row of sourcesResult.data ?? []) {
+    const montantId = isRecord(row) ? texte(row.budget_value_id) : null;
+    const hypotheseId = isRecord(row) ? texte(row.hypothesis_id) : null;
+    const part = isRecord(row) ? texte(row.amount) : null;
+    if (!montantId || !hypotheseId || !part) {
+      continue;
+    }
+    originesLues += 1;
+    const parts = originesParMontant.get(montantId) ?? [];
+    parts.push({ amount: part, label: cleHypothese.get(hypotheseId) ?? hypotheseId });
+    originesParMontant.set(montantId, parts);
+  }
+
   const lignes: ExportRow[] = [];
   for (const row of rawValues ?? []) {
     if (!isRecord(row)) {
       continue;
     }
+    const id = texte(row.id);
     const dimensionId = texte(row.dimension_id);
     const accountId = texte(row.account_id);
     const periodId = texte(row.period_id);
@@ -159,7 +215,7 @@ export async function GET(
     // une ANOMALIE, pas un filtrage. La compter, et refuser l'export plus bas
     // si le compte n'y est pas. Un classeur amputé en silence est le pire des
     // trois issues possibles — il est reçu, signé, et faux.
-    if (!dimensionId || !accountId || !periodId || !montant || !devise || !nom) {
+    if (!id || !dimensionId || !accountId || !periodId || !montant || !devise || !nom) {
       continue;
     }
 
@@ -170,6 +226,7 @@ export async function GET(
       dimension: nom,
       dimensionId,
       period: libellePeriode.get(periodId) ?? periodId,
+      sources: originesParMontant.get(id) ?? [],
     });
   }
 
@@ -179,6 +236,9 @@ export async function GET(
   // en-têtes, sans qu'aucune erreur ne le dise.
   if (lignes.length !== (rawValues ?? []).length) {
     return refus("Export interrompu : une ligne publiée n'a pas pu être lue.", 500);
+  }
+  if (originesLues !== (sourcesResult.data ?? []).length) {
+    return refus("Export interrompu : une origine publiée n'a pas pu être lue.", 500);
   }
 
   const fichier = await buildWorkbook(lignes);

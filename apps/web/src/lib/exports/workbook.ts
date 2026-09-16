@@ -21,6 +21,14 @@
 import { unzipSync, zipSync } from "fflate";
 import writeXlsxFile from "write-excel-file/node";
 
+/** D'où vient une part d'un montant : l'hypothèse, et ce qu'elle y apporte. */
+export type ExportSource = {
+  /** La part, telle que le moteur l'a rendue — jamais arrondie. */
+  amount: string;
+  /** La clé de l'hypothèse (`parameter_key`). */
+  label: string;
+};
+
 /** Une ligne de consolidation, telle qu'elle part dans le fichier. */
 export type ExportRow = {
   account: string;
@@ -30,9 +38,19 @@ export type ExportRow = {
   /** Sert au tri, jamais écrit : l'ordre ne doit pas dépendre d'une locale. */
   dimensionId: string;
   period: string;
+  /** Les origines du montant ; leur somme est le montant, arrondi une fois. */
+  sources: readonly ExportSource[];
 };
 
 const EN_TETES = ["Dimension", "Compte", "Période", "Montant", "Devise"] as const;
+
+/**
+ * La seconde feuille. « Chaque chiffre publié dit d'où il vient » ne vaut que
+ * si le fichier remis le dit aussi : une ligne par part, jamais arrondie, dont
+ * la somme est le montant de la première feuille — la même addition que le
+ * lecteur fait à l'écran en dépliant l'origine.
+ */
+const EN_TETES_ORIGINES = ["Dimension", "Compte", "Période", "Hypothèse", "Part", "Devise"] as const;
 
 /**
  * Date figée des entrées de l'archive.
@@ -84,7 +102,7 @@ export async function buildWorkbook(rows: readonly ExportRow[]): Promise<Buffer>
     ),
   );
 
-  const donnees = [
+  const consolidation = [
     EN_TETES.map((intitule) => ({ type: String, value: intitule })),
     ...triees.map((row) => [
       { type: String, value: row.dimension },
@@ -95,7 +113,30 @@ export async function buildWorkbook(rows: readonly ExportRow[]): Promise<Buffer>
     ]),
   ];
 
-  const brut = await (await writeXlsxFile(donnees, { sheet: "Consolidation" })).toBuffer();
+  // Les parts suivent l'ordre des lignes, puis celui des hypothèses, dans la
+  // même locale fixe que les lignes : l'ordre est une propriété du contenu.
+  const origines = [
+    EN_TETES_ORIGINES.map((intitule) => ({ type: String, value: intitule })),
+    ...triees.flatMap((row) =>
+      [...row.sources]
+        .sort((a, b) => a.label.localeCompare(b.label, "en"))
+        .map((source) => [
+          { type: String, value: row.dimension },
+          { type: String, value: row.account },
+          { type: String, value: row.period },
+          { type: String, value: source.label },
+          { type: String, value: source.amount },
+          { type: String, value: row.currency },
+        ]),
+    ),
+  ];
+
+  const brut = await (
+    await writeXlsxFile([
+      { data: consolidation, sheet: "Consolidation" },
+      { data: origines, sheet: "Origines" },
+    ])
+  ).toBuffer();
 
   return figerLArchive(new Uint8Array(brut));
 }
