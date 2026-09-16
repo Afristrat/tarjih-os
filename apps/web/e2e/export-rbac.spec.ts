@@ -135,10 +135,19 @@ test.describe("Un export ne sort jamais du périmètre de celui qui le demande",
       "le corps rendu n'est pas une archive : ce n'est pas un classeur",
     ).toEqual([0x50, 0x4b]);
 
-    const texte = Object.values(unzipSync(fichier))
+    const entrees = unzipSync(fichier);
+    const texte = Object.values(entrees)
       .map((entree) => strFromU8(entree))
       .join("\n");
     expect(texte, "le chiffre publié ne figure pas dans le classeur").toContain("1234.56");
+
+    // Le classeur dit d'où vient le chiffre : une feuille « Origines », une
+    // ligne par part, qui nomme l'hypothèse. Sans elle, l'export remis au DG
+    // est aveugle là où l'écran ne l'est pas.
+    expect(strFromU8(entrees["xl/workbook.xml"]), "aucune feuille « Origines »").toContain(
+      'name="Origines"',
+    );
+    expect(texte, "l'origine ne nomme pas l'hypothèse publiée").toContain(PARAMETRE);
 
     expect(erreurs(), "erreurs de console sur l'écran de consolidation").toEqual([]);
   });
