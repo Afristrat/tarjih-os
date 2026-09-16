@@ -4,6 +4,119 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-16 (soir) : le jeton du moteur ne vit plus dans les images ; le moteur porte son plafond ; ALERTE 10 reposée sur preuve
+
+```
+[ETAT]
+  Repo      : `HEAD` == `origin/master` == **`7486297`** (+ cette entrée), worktree PROPRE.
+  Prod      : `tarjih-web` ET `tarjih-calculation` sur **`7486297`**, `healthy` (déploiements
+              `x539wfb8…` et `p9cclv10…`, finis 16:09Z). Moteur : `Memory 268435456`,
+              `MemorySwap 536870912`, `PidsLimit 128` (était 0/0/nil).
+  Secret    : `CALCULATION_SERVICE_TOKEN` **TOURNÉ** (coffre `TARJIH_CALCULATION_SERVICE_TOKEN`,
+              sauvegarde `bak-20260916-170436`, index 335 clés), `is_buildtime = false` sur les
+              deux applications (prod + preview). `docker history` des deux images en service :
+              aucun `ARG CALCULATION_SERVICE_TOKEN=` ; 8 images dormantes et le cache de build
+              purgés. Preuve d'usage : depuis le conteneur web, `/calculate` rend **422** avec
+              son jeton (payload vide refusé, service vivant) et **401** avec un jeton faux.
+  CI        : verte sur `7486297` (run 35119239373).
+  Gates     : **Playwright 38/38 contre `https://tarjih-os.com` sur `7486297`** (8,9 min ;
+              les pas 24 et 30 publient, donc traversent le moteur avec le nouveau jeton).
+  Tasks     : 01→10 ✅. Restent ALERTE 10 (décision, reposée ci-dessous) et 9 (non ouverte).
+
+[FAIT]
+  1. **Le jeton du moteur était gravé dans les images de production** (signalement L123 du
+     14/09, jamais appliqué ici) : `is_buildtime = true` par défaut Coolify sur
+     `CALCULATION_SERVICE_TOKEN` des DEUX applications ; `docker history` montrait une ligne
+     `ARG CALCULATION_SERVICE_TOKEN=` dans chaque image en service (prouvé par comptage, jamais
+     par lecture). C'était le seul secret vivant des deux applications : le web n'a AUCUNE clé
+     secrète Supabase (publishable + session utilisateur, tout sous RLS).
+     · Rotation en un seul script (SOP-001 variante C adaptée : valeur GÉNÉRÉE localement,
+       48 caractères base64url, jamais imprimée) : `PATCH /api/v1/applications/{uuid}/envs`
+       ×4 (deux applications × prod/preview) avec `is_buildtime=false, is_runtime=true`, tous
+       **HTTP 201** ; puis `add-secret.ps1 -Name … -Value $v` in-process ; variable effacée.
+       Le contrôleur assigne `value` sans condition : un PATCH sans `value` mettrait la
+       variable à NULL (lu dans `ApplicationsController::update_env_by_uuid`).
+     · Piège L124 évité par construction : le compose du moteur écrit
+       `${CALCULATION_SERVICE_TOKEN}` sans `:?`, le web lit `process.env` à l'appel et le
+       moteur rend 503 sans clé : fail-fast déjà en place des deux côtés.
+     · Redéploiement des deux applications par `GET /api/v1/deploy?uuid=a,b` (mise en file
+       confirmée, statut suivi en base Coolify toutes les 20 s jusqu'à `finished`). Fenêtre
+       d'incohérence web/moteur pendant le double redéploiement (~3 min) : acceptée, aucun
+       trafic réel mesuré, une publication aurait rendu une erreur explicite, pas un chiffre.
+     · `ARG` restants dans l'image web : `COOLIFY_*`, `NEXT_PUBLIC_*` (inlinés par Next, non
+       secrets) et `CALCULATION_SERVICE_URL` (adresse interne, non secrète) ; non touché.
+  2. **Le moteur tournait sans plafond** (signalement L53 du 03/09) : le plafond posé à chaud
+     avait disparu au redéploiement du 14/09, comme annoncé, parce que Coolify n'injecte
+     `limits_memory` que pour nixpacks/dockerfile/dockerimage. `docker-compose.calculation.yaml`
+     porte désormais `mem_limit: 256m`, `memswap_limit: 512m`, `pids_limit: 128` (mesuré :
+     ~10 Mio, 6 PIDs) ; modèle Coolify aligné par `PATCH /applications/{uuid}` (relu :
+     `256m`/`512m`, SOP-020 étape 5). Vérifié par `docker inspect` sur le conteneur neuf.
+  3. **Purge** : les 8 images dormantes des deux applications supprimées (toutes portaient le
+     jeton en `ARG`), puis `docker builder prune -af` : **201,7 Go** rendus. ⚠ Ce cache de
+     build est celui de TOUT le parc : le prochain build de chaque application de `serveuria`
+     repart à froid (plus lent, pas cassé). Signalé ci-dessous.
+  4. Mémoire projet `reference-inventaire-cles-tarjih.md` : rotation datée, motif, règle « les
+     deux applications et le coffre bougent ensemble ».
+
+[ALERTE]
+  1. **ALERTE 10 est mal posée, et la preuve est dans `has_dimension_permission`** : les rôles
+     `daf` et `dg` ont TOUTES les permissions sur TOUTES les dimensions, sans grant. Une
+     « dimension dédiée » ne cache donc rien au DAF : elle ne restreint que les contributeurs.
+     La question n'est pas « une dimension dédiée suffit-elle ? » mais **« le DAF doit-il tout
+     voir ? »** ; si oui, un scénario confidentiel réservé au DG est IMPOSSIBLE aujourd'hui,
+     quelle que soit la dimension. Décision d'Amine (SOP-015), avec le patch minimal prêt si
+     la réponse est « non » : une colonne `dimensions.restricted_to_dg boolean default false`
+     et, dans `has_dimension_permission`, le rôle `daf` exclu des dimensions restreintes ;
+     pgTAP `14_…` ; l'écran « dimensions » du DG porte la case. Une session.
+  2. Le total « Résultat » de `/app/consolidation/[id]` est celui du PÉRIMÈTRE du lecteur (RLS
+     sur `budget_values`) : un contributeur qui ne lit que sa dimension voit un « Résultat »
+     qui n'est pas celui du tenant, sans que l'écran le dise. Fait nommé, pas de chantier ouvert.
+  3. Coffre : l'index passe de 336 (passation du matin) à **335** clés ; cette opération a
+     REMPLACÉ une clé (sortie du script, fichier réduit de 64 octets = différence de longueur
+     de valeur), l'écart vient d'ailleurs et n'est pas expliqué. À vérifier par la session qui
+     tient le coffre si une clé manque quelque part ; côté Tarjih, les 7 clés `TARJIH_*` sont là.
+  4. Le broker rend exit 1 après « 38 passed » (pipeline `Select-String`, connu). Une recette
+     de 8,9 min dépasse `-TimeoutSec 590` : le premier passage a été TUÉ à 590 s (résultat
+     inconnu, non interprété) ; le second, à 1 500 s, est le 38/38. Toujours `-TimeoutSec 1500`.
+  5. `Tee-Object` écrit en UTF-16 : lire le journal par `decode('utf-16')`, pas par `cat`.
+
+[NEXT]
+  1. **ALERTE 10 : un mot d'Amine** sur « le DAF voit tout » (oui → clore, documenter la
+     matrice dans `specs/_source/archi.md` ; non → patch ci-dessus, une session).
+  2. **Gate Playwright exigée par le système** (dette de premier rang, mémoire du 14/09) :
+     workflow prêt dans le scratchpad de la session (`deploy.yml` : CI verte → déploiement par
+     l'API → attente `running:healthy` → 38 pas ; `concurrency` sérialise, plus de télescopage
+     e2e). Prérequis = 4 mots de passe e2e + un jeton Coolify **à portée deploy seulement**
+     (à créer dans l'interface Coolify, pas d'API de création de jeton) en secrets GitHub :
+     c'est une décision de politique de secrets, un mot d'Amine, puis une session.
+  3. Rien d'autre d'entamé.
+
+[CTX]
+  Session `018JVMAt…` (reprise après /clear, id local `52e5f22f`), 2026-09-16 soir. Commit
+  `7486297` (compose) puis cette entrée. Scripts de la session (scratchpad, aucun secret
+  dedans) : `coolify-envs-meta.sh` (métadonnées des variables, `jq` sur clé/drapeaux/longueur),
+  `rotate-calc-token.ps1`, `deploy-both.ps1`, `limits-calc.ps1`, `preuve-jeton.sh`, `deploy.yml`.
+  API Coolify : `GET …/envs` ne rend PAS les valeurs (champ absent) ; champs réels
+  `is_buildtime`/`is_runtime` (pas `is_build_time`). Le garde bash exige un `jq -r '.champ'`
+  sur tout appel Coolify : passer par un script de fichier lancé par le broker
+  (`& "C:\Program Files\Git\bin\bash.exe" <script>` ; `bash` nu = WSL, qui ne voit pas `C:\`).
+  `docker history --format '{{.CreatedBy}}' | grep -oE 'ARG [A-Z0-9_]+='` = noms seuls.
+  Reste inchangé : entrée du 2026-09-16 matin, [CTX].
+
+[MEMO]
+  1. **Un signalement inter-projets adressé au projet est une dette du projet** : L53 (03/09)
+     et L123 (14/09) visaient Tarjih nommément, deux passations sont passées dessus en disant
+     « rien d'ouvert ». Le grep des signalements fait partie de l'état des lieux.
+  2. **Un secret « interne, non exposé » est exposé dès qu'il est dans une image** : le
+     `docker history` se lit sans aucun droit sur l'application.
+  3. **Une purge de cache Docker est une action de parc, pas de projet** : `builder prune`
+     n'a pas de périmètre par application ; le dire avant de le lancer, ou cibler `docker rmi`.
+  4. **Prouver un jeton par deux codes** : le bon (≠ 401) ET le faux (= 401), sinon un 422
+     pourrait venir d'un service qui ne vérifie rien.
+```
+
+---
+
 ## 2026-09-16 — ALERTES 1, 5 et 8 FERMÉES ; clé technique supprimée ; l'échec de connexion est situé hors du serveur
 
 ```
