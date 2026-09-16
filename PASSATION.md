@@ -21,7 +21,8 @@
   CI        : verte sur `7486297` (run 35119239373).
   Gates     : **Playwright 38/38 contre `https://tarjih-os.com` sur `7486297`** (8,9 min ;
               les pas 24 et 30 publient, donc traversent le moteur avec le nouveau jeton).
-  Tasks     : 01→10 ✅. Restent ALERTE 10 (décision, reposée ci-dessous) et 9 (non ouverte).
+  Tasks     : 01→10 ✅. **ALERTE 10 FERMÉE** (décision d'Amine « normalement oui », le DAF voit
+              tout ; matrice documentée dans `specs/_source/archi.md`). Reste 9 (non ouverte).
 
 [FAIT]
   1. **Le jeton du moteur était gravé dans les images de production** (signalement L123 du
@@ -59,15 +60,15 @@
      deux applications et le coffre bougent ensemble ».
 
 [ALERTE]
-  1. **ALERTE 10 est mal posée, et la preuve est dans `has_dimension_permission`** : les rôles
+  1. ~~ALERTE 10~~ **FERMÉE** le 16/09 au soir : reposée sur preuve, puis tranchée. Les rôles
      `daf` et `dg` ont TOUTES les permissions sur TOUTES les dimensions, sans grant. Une
      « dimension dédiée » ne cache donc rien au DAF : elle ne restreint que les contributeurs.
      La question n'est pas « une dimension dédiée suffit-elle ? » mais **« le DAF doit-il tout
      voir ? »** ; si oui, un scénario confidentiel réservé au DG est IMPOSSIBLE aujourd'hui,
-     quelle que soit la dimension. Décision d'Amine (SOP-015), avec le patch minimal prêt si
-     la réponse est « non » : une colonne `dimensions.restricted_to_dg boolean default false`
-     et, dans `has_dimension_permission`, le rôle `daf` exclu des dimensions restreintes ;
-     pgTAP `14_…` ; l'écran « dimensions » du DG porte la case. Une session.
+     quelle que soit la dimension. **Réponse d'Amine : « Normalement oui »** (le DAF voit tout) :
+     la confidentialité se joue par dimension et par rôle, jamais par hypothèse ni scénario ;
+     documenté dans la matrice RBAC de `archi.md` avec la voie courte si un tenant réel mesure
+     un jour le besoin inverse (drapeau sur la dimension, DAF exclu dans la fonction, pgTAP).
   2. Le total « Résultat » de `/app/consolidation/[id]` est celui du PÉRIMÈTRE du lecteur (RLS
      sur `budget_values`) : un contributeur qui ne lit que sa dimension voit un « Résultat »
      qui n'est pas celui du tenant, sans que l'écran le dise. Fait nommé, pas de chantier ouvert.
@@ -81,15 +82,13 @@
   5. `Tee-Object` écrit en UTF-16 : lire le journal par `decode('utf-16')`, pas par `cat`.
 
 [NEXT]
-  1. **ALERTE 10 : un mot d'Amine** sur « le DAF voit tout » (oui → clore, documenter la
-     matrice dans `specs/_source/archi.md` ; non → patch ci-dessus, une session).
-  2. **Gate Playwright exigée par le système** (dette de premier rang, mémoire du 14/09) :
+  1. **Gate Playwright exigée par le système** (dette de premier rang, mémoire du 14/09) :
      workflow prêt dans le scratchpad de la session (`deploy.yml` : CI verte → déploiement par
      l'API → attente `running:healthy` → 38 pas ; `concurrency` sérialise, plus de télescopage
      e2e). Prérequis = 4 mots de passe e2e + un jeton Coolify **à portée deploy seulement**
      (à créer dans l'interface Coolify, pas d'API de création de jeton) en secrets GitHub :
      c'est une décision de politique de secrets, un mot d'Amine, puis une session.
-  3. Rien d'autre d'entamé.
+  2. Rien d'autre d'entamé ; plus aucune alerte technique ouverte, 9 reste fermée jusqu'à mesure.
 
 [CTX]
   Session `018JVMAt…` (reprise après /clear, id local `52e5f22f`), 2026-09-16 soir. Commit
