@@ -18,7 +18,13 @@ name: CI
 on:
   push:
     branches: [master]
+    # Une poussée qui ne touche que de la documentation (passation, docs, specs) ne
+    # relance ni les gates ni, par ricochet, le déploiement : le 16/09 au soir, deux
+    # entrées de passation ont redéployé les deux applications de production pour rien.
+    # La production reste alors sur le dernier commit qui portait du code.
+    paths-ignore: ['**.md']
   pull_request:
+    paths-ignore: ['**.md']
 
 concurrency:
   group: ci-${{ github.ref }}
