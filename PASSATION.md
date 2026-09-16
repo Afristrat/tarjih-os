@@ -8,7 +8,8 @@
 
 ```
 [ETAT]
-  Repo      : `HEAD` == `origin/master` == **`7486297`** (+ cette entrée), worktree PROPRE.
+  Repo      : `HEAD` == `origin/master` == **`5d9aaa7`**, worktree PROPRE (`7486297` compose,
+              `9e0da73` passation, `8881220` ALERTE 10, `5d9aaa7` gate inerte).
   Prod      : `tarjih-web` ET `tarjih-calculation` sur **`7486297`**, `healthy` (déploiements
               `x539wfb8…` et `p9cclv10…`, finis 16:09Z). Moteur : `Memory 268435456`,
               `MemorySwap 536870912`, `PidsLimit 128` (était 0/0/nil).
@@ -82,12 +83,20 @@
   5. `Tee-Object` écrit en UTF-16 : lire le journal par `decode('utf-16')`, pas par `cat`.
 
 [NEXT]
-  1. **Gate Playwright exigée par le système** (dette de premier rang, mémoire du 14/09) :
-     workflow prêt dans le scratchpad de la session (`deploy.yml` : CI verte → déploiement par
-     l'API → attente `running:healthy` → 38 pas ; `concurrency` sérialise, plus de télescopage
-     e2e). Prérequis = 4 mots de passe e2e + un jeton Coolify **à portée deploy seulement**
-     (à créer dans l'interface Coolify, pas d'API de création de jeton) en secrets GitHub :
-     c'est une décision de politique de secrets, un mot d'Amine, puis une session.
+  1. **Gate Playwright exigée par le système : tout est en place, INERTE, un mot l'active.**
+     `.github/workflows/deploy.yml` COMMITÉ (`5d9aaa7`) : après une CI verte sur master,
+     déploiement des deux applications par l'API (POST `/deploy`), attente `finished` puis
+     `running:healthy`, 38 pas Playwright, `concurrency` sérialisée. Inerte tant que la
+     variable de dépôt `TARJIH_GATE_E2E` ≠ `true` : run `35137993350` sur `5d9aaa7` =
+     `skipped`, aucun déploiement déclenché. Jeton Coolify **à portée `read`+`deploy`**
+     créé côté serveur (tinker, `session(['currentTeam' => Team::find(0)])` sinon
+     `team_id` NULL), id 19 `tarjih-ci-deploy-2026-09-16`, au coffre
+     `TARJIH_COOLIFY_DEPLOY_TOKEN` (336 clés), prouvé : GET 200/200, PATCH **403**.
+     Activation = UNE commande, `scripts/activer-gate-e2e.ps1` par le broker (5 secrets +
+     2 variables déposés depuis le coffre, jamais par le transcript) ; désactivation =
+     `gh variable set TARJIH_GATE_E2E --body false`. **Décision d'Amine** : les 4 mots de
+     passe e2e (tenant de recette) et le jeton read+deploy vont-ils en secrets GitHub ? oui
+     → lancer le script, pousser un commit vide, vérifier le run vert.
   2. Rien d'autre d'entamé ; plus aucune alerte technique ouverte, 9 reste fermée jusqu'à mesure.
 
 [CTX]
