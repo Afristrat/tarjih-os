@@ -922,6 +922,13 @@ h2 {
   color: #a4442f;
 }
 
+/* Ce qui mérite un second regard sans être un refus : une décision prise par
+   l'auteur de la ligne. */
+.state-tag[data-tone="vigilance"] {
+  border-color: #8a6d1f;
+  color: #8a6d1f;
+}
+
 .cycle-block + .cycle-block {
   border-top: 1px solid var(--line);
   margin-top: 30px;

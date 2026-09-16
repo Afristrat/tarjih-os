@@ -13,6 +13,7 @@ import {
   hypothesisStatusTone,
   type DimensionGrantRow,
 } from "@/lib/budgets/scope";
+import { SELF_DECIDED_LABEL } from "@/lib/budgets/self-decisions";
 import { createClient } from "@/lib/supabase/server";
 
 type PageParams = Promise<{ id: string }>;
@@ -378,6 +379,14 @@ export default async function HypothesisPage({
                     </span>
                     <span>{new Date(decision.created_at).toLocaleString("fr-FR")}</span>
                     <span>{decision.decided_by === context.userId ? "Par vous" : "Par un approbateur"}</span>
+                    {/* Séparation des devoirs rendue visible, pas imposée : le
+                        tenant réel n'a qu'un membre. Celui qui lit la décision
+                        sait qu'elle n'a pas eu de second regard. */}
+                    {decision.decided_by === hypothesis.proposed_by ? (
+                      <span className="state-tag" data-tone="vigilance">
+                        {SELF_DECIDED_LABEL}
+                      </span>
+                    ) : null}
                   </div>
                   <p>{decision.reason}</p>
                 </li>
