@@ -1,0 +1,92 @@
+# Déploiement et gate de recette, exigés par le système et non par la discipline
+# d'une session : CI verte sur master → déploiement des deux applications par
+# l'API Coolify → attente des conteneurs sains → les 38 pas Playwright contre la
+# production. `concurrency` sérialise les exécutions : deux recettes ne se
+# télescopent plus sur les tenants e2e, et une poussée pendant une recette
+# attend son tour au lieu de l'annuler (cancel-in-progress: false).
+#
+# Le workflow est INERTE tant que la variable de dépôt TARJIH_GATE_E2E ne vaut
+# pas « true » : l'activer suppose cinq secrets de dépôt (TARJIH_E2E_PW_CONTRIB,
+# TARJIH_E2E_PW_DAF, TARJIH_E2E_PW_DG, TARJIH_E2E_PW_INTRUS, COOLIFY_API_TOKEN à
+# portée read+deploy seulement, jeton `tarjih-ci-deploy-2026-09-16`) et la
+# variable COOLIFY_URL. Tant qu'il est inerte, la recette se joue depuis le
+# poste par le broker de secrets, et c'est une dette de validation, pas un état.
+name: Déploiement
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [master]
+    types: [completed]
+
+concurrency:
+  group: deploiement-production
+  cancel-in-progress: false
+
+jobs:
+  deployer-puis-recetter:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.TARJIH_GATE_E2E == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Déployer le moteur et le web
+        env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+        run: |
+          set -euo pipefail
+          # POST : la version installée (4.3.19) accepte GET et POST, les suivantes exigent POST.
+          reponse=$(curl -sS -f -X POST -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+            "$COOLIFY_URL/api/v1/deploy?uuid=tuxybsaq9adb6txew2rc6zkr,l3fov9fbnjvrgt5ly75b7g5r&force=false")
+          echo "$reponse" | jq -r '.deployments[] | "\(.resource_uuid) \(.deployment_uuid)"' | tee deployments.txt
+
+      - name: Attendre que les deux déploiements soient terminés et sains
+        env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+        run: |
+          set -euo pipefail
+          restants=1
+          for i in $(seq 1 60); do
+            restants=0
+            while read -r resource deployment; do
+              statut=$(curl -sS -f -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+                "$COOLIFY_URL/api/v1/deployments/$deployment" | jq -r '.status')
+              case "$statut" in
+                finished) ;;
+                failed|cancelled) echo "déploiement $deployment : $statut" >&2; exit 1 ;;
+                *) restants=$((restants + 1)) ;;
+              esac
+            done < deployments.txt
+            [ "$restants" -eq 0 ] && break
+            sleep 10
+          done
+          [ "$restants" -eq 0 ] || { echo "déploiements toujours en cours après 10 min" >&2; exit 1; }
+          for uuid in tuxybsaq9adb6txew2rc6zkr l3fov9fbnjvrgt5ly75b7g5r; do
+            statut=$(curl -sS -f -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+              "$COOLIFY_URL/api/v1/applications/$uuid" | jq -r '.status')
+            echo "$uuid : $statut"
+            [ "$statut" = "running:healthy" ] || exit 1
+          done
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+        working-directory: apps/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Recette Playwright contre la production
+        working-directory: apps/web
+        env:
+          TARJIH_E2E_PW_CONTRIB: ${{ secrets.TARJIH_E2E_PW_CONTRIB }}
+          TARJIH_E2E_PW_DAF: ${{ secrets.TARJIH_E2E_PW_DAF }}
+          TARJIH_E2E_PW_DG: ${{ secrets.TARJIH_E2E_PW_DG }}
+          TARJIH_E2E_PW_INTRUS: ${{ secrets.TARJIH_E2E_PW_INTRUS }}
+        run: npm run test:e2e

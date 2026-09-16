@@ -7,10 +7,12 @@
 #   database    — image `supabase/postgres` du serveur : toute la chaîne du schéma
 #                 rejouée sur une base vide (`scripts/db-gates.sh`).
 #
-# Les recettes Playwright ne tournent PAS ici : elles jouent contre la production
-# avec des comptes du coffre, et deux exécutions simultanées sur les mêmes tenants
-# de recette se télescoperaient. Elles restent lancées depuis le poste, par le
-# broker de secrets, avant chaque déploiement.
+# Les recettes Playwright ne tournent pas ici mais dans `deploy.yml`, déclenché par
+# la réussite de ce workflow sur master : déploiement par l'API Coolify, attente
+# des conteneurs sains, puis les 38 pas contre la production, sérialisés par
+# `concurrency` (deux exécutions simultanées sur les mêmes tenants de recette se
+# télescoperaient). Tant que `deploy.yml` est inerte (variable TARJIH_GATE_E2E),
+# la recette se joue depuis le poste par le broker de secrets.
 name: CI
 
 on:
