@@ -4,7 +4,7 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
-## 2026-09-16 (nuit) : la gate Playwright est exigée par le système, sur un runner auto-hébergé, sans aucun secret chez GitHub ; premier run 33/38, relance en cours
+## 2026-09-16 (nuit) : la gate Playwright est exigée par le système, sur un runner auto-hébergé, sans aucun secret chez GitHub ; PROUVÉE de bout en bout (run 35144957733 : déploiement, santé, 38/38)
 
 ```
 [ETAT]
@@ -38,9 +38,10 @@
               Ce pas passe sur le poste (38/38 deux fois ce jour). **Tentative 5** : rouge à
               l'étape 4, `tarjih-web` lu `running:unhealthy` ~30 s après `finished` (sonde du
               conteneur neuf pas encore passée) → corrigé par `dd06f3c` (boucle jusqu'à
-              `running:healthy`). **Run sur `dd06f3c` EN COURS au moment de cette entrée** :
-              `gh run list --workflow Déploiement --limit 1` puis `gh run view <id> --json
-              status,conclusion,jobs`.
+              `running:healthy`). **Run `35144957733` sur `dd06f3c` : SUCCÈS, les 8 étapes vertes,
+              déploiement des deux applications par le runner, attente `running:healthy`,
+              recette 38/38 en 4,2 min.** La gate est exigée par le système : chaque poussée
+              sur master déploie puis recette, sans discipline de session et sans secret GitHub.
   Coffre    : 336 clés. `TARJIH_COOLIFY_DEPLOY_TOKEN` = jeton 20 (le 19 est RÉVOQUÉ).
   ALERTES   : 1, 2, 4, 5, 7, 8, 10 fermées ; 9 non ouverte (sans mesure). Aucune technique.
 
@@ -91,10 +92,9 @@
      (trois gestes, documentés dans `runner.env` et la mémoire projet).
 
 [NEXT]
-  1. Lire le run Déploiement sur `dd06f3c`. Vert → la gate est prouvée de bout en bout :
-     l'écrire ici, mettre à jour `reference-inventaire-cles-tarjih.md` (jeton 20) et retirer
-     de l'index central la mention « décision de politique de secrets ». Rouge au pas 26 →
-     ALERTE 1 ci-dessus, diagnostiquer DANS le runner, corriger la cause (jamais un retry).
+  1. Le pas 26 rouge de la tentative 4 ne s'est PAS reproduit (38/38 au run suivant) :
+     flakiness n=1, ALERTE 1 reste ouverte comme observation ; au prochain rouge, diagnostiquer
+     DANS le runner (jamais un retry). Inventaire des clés à jour (jeton 20).
   2. Réécrire l'entrée [NEXT] 1 de l'entrée « (soir) » (elle décrit l'itération GitHub
      secrets, périmée).
   3. Rien d'autre d'entamé.
