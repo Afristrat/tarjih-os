@@ -11,8 +11,8 @@
 # la réussite de ce workflow sur master : déploiement par l'API Coolify, attente
 # des conteneurs sains, puis les 38 pas contre la production, sérialisés par
 # `concurrency` (deux exécutions simultanées sur les mêmes tenants de recette se
-# télescoperaient). Tant que `deploy.yml` est inerte (variable TARJIH_GATE_E2E),
-# la recette se joue depuis le poste par le broker de secrets.
+# télescoperaient), sur le runner auto-hébergé `serveuria-tarjih-1`, sans aucun
+# secret chez GitHub.
 name: CI
 
 on:
