@@ -963,6 +963,12 @@ h2 {
   padding: 13px 0;
 }
 
+/* Une justification se lit comme elle a été écrite : ses retours à la ligne
+   sont ceux de l'auteur, pas ceux de la grille. */
+.fact-list dd.hypothesis-note {
+  white-space: pre-line;
+}
+
 .trail {
   display: grid;
   gap: 16px;

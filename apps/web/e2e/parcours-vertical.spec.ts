@@ -48,6 +48,9 @@ const PARAMETRE_EN_ATTENTE = "charge_en_attente";
 const MONTANT_APPROUVE = "1200,50";
 const MONTANT_EN_ATTENTE = "999,99";
 
+/** Ce que l'auteur dit de son chiffre, et que le DAF lit avant de décider. */
+const JUSTIFICATION = "12 licences × 100,04 MAD, tarif négocié en juin.";
+
 /** « 1 200,50 » avec le séparateur de milliers que produit `Intl` en fr-FR. */
 const MONTANT_PUBLIE = /1\s?200,50/;
 const MONTANT_JAMAIS_PUBLIE = /999,99/;
@@ -132,6 +135,9 @@ test.describe("Le parcours vertical produit un chiffre publié", () => {
       await proposition.locator('select[name="account_code"]').selectOption(CODE_COMPTE);
       await proposition.locator('select[name="period_id"]').selectOption({ index: 0 });
       await proposition.locator('input[name="value"]').fill(montant);
+      if (parametre === PARAMETRE_APPROUVE) {
+        await proposition.locator('textarea[name="note"]').fill(JUSTIFICATION);
+      }
       await proposition.getByRole("button", { name: "Proposer" }).click();
 
       await expect(page.getByRole("cell", { name: parametre })).toBeVisible();
@@ -152,6 +158,13 @@ test.describe("Le parcours vertical produit un chiffre publié", () => {
       .getByRole("row", { name: new RegExp(PARAMETRE_APPROUVE) })
       .getByRole("link", { name: "Détail" })
       .click();
+
+    // Le DAF lit POURQUOI avant de décider : la justification de l'auteur est
+    // sur l'écran de décision, telle qu'elle a été écrite.
+    await expect(
+      page.locator(".hypothesis-note"),
+      "la justification de l'auteur n'est pas lisible par celui qui décide",
+    ).toHaveText(JUSTIFICATION);
 
     const decision = formulaire(page, "Enregistrer la décision");
     await decision.locator('select[name="decision"]').selectOption("approved");

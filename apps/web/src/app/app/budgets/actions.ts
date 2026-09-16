@@ -115,6 +115,9 @@ export async function proposeHypothesis(formData: FormData): Promise<never> {
   const unit = requiredText(formData, "unit", 32);
   const accountCode = requiredText(formData, "account_code", 64);
   const periodId = requiredText(formData, "period_id", 64);
+  // Facultative : la colonne refuse le blanc, pas l'absence. Une note trop
+  // longue vaut absence ici, et la colonne la refuserait de toute façon.
+  const note = requiredText(formData, "note", 2000);
 
   // La forme de la valeur dépend du modèle de la version, et le modèle est lu
   // en base plutôt que soumis par le formulaire : une hypothèse ne choisit pas
@@ -166,6 +169,7 @@ export async function proposeHypothesis(formData: FormData): Promise<never> {
   // ne pas offrir un formulaire condamné, il ne décide de rien.
   const { error } = await supabase.from("hypotheses").insert({
     dimension_id: dimensionId,
+    note,
     parameter_key: parameterKey,
     proposed_by: context.userId,
     status: "proposed",
@@ -218,6 +222,7 @@ export async function updateHypothesis(formData: FormData): Promise<never> {
 
   const target = `/app/hypotheses/${hypothesisId}`;
   const unit = requiredText(formData, "unit", 32);
+  const note = requiredText(formData, "note", 2000);
   const rawRowVersion = requiredText(formData, "row_version", 16);
   const rowVersion = rawRowVersion ? Number.parseInt(rawRowVersion, 10) : Number.NaN;
 
@@ -238,7 +243,7 @@ export async function updateHypothesis(formData: FormData): Promise<never> {
   // signifie qu'un autre a écrit entre-temps — jamais que rien ne s'est passé.
   const { data, error } = await supabase
     .from("hypotheses")
-    .update({ row_version: rowVersion + 1, unit, value })
+    .update({ note, row_version: rowVersion + 1, unit, value })
     .eq("id", hypothesisId)
     .eq("row_version", rowVersion)
     .select("id");
