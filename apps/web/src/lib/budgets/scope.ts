@@ -166,9 +166,12 @@ export function versionStatusLabel(status: string): string {
 // `{ type: "decimal", value: "1234.5678" }`, et c'est cette chaîne-là qui est
 // affichée. Passer par un nombre JavaScript la ferait transiter par un flottant
 // binaire, où 0.10 cesse d'être 0.10.
-// Trois tons seulement : ce qui attend une main humaine, ce qui est acquis, ce
-// qui est refusé ou en échec. Un état non répertorié est traité comme en
-// attente : il n'est jamais présenté comme acquis par défaut.
+// Trois tons pour un STATUT : ce qui attend une main humaine, ce qui est
+// acquis, ce qui est refusé ou en échec. Un état non répertorié est traité
+// comme en attente : il n'est jamais présenté comme acquis par défaut. Un
+// quatrième ton, « vigilance », existe dans la feuille de style pour ce qui
+// n'est pas un statut mais mérite un second regard (une décision prise par
+// l'auteur de la ligne) ; il ne se déduit d'aucun statut, d'où son absence ici.
 export type StateTone = "acquis" | "attente" | "refus";
 
 const HYPOTHESIS_TONES: Record<string, StateTone> = {

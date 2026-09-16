@@ -6,6 +6,7 @@ import { proposeHypothesis } from "@/app/app/budgets/actions";
 import { requireActiveTenant } from "@/lib/auth/session";
 import { isCalculable, readHypothesisFacts } from "@/lib/budgets/hypothesis-value";
 import { noticeFrom } from "@/lib/budgets/notices";
+import { SELF_DECIDED_LABEL, selfDecidedHypotheses } from "@/lib/budgets/self-decisions";
 import {
   DRIVERS,
   driverLabel,
@@ -39,6 +40,7 @@ type HypothesisRow = {
   dimension_id: string;
   id: string;
   parameter_key: string;
+  proposed_by: string;
   status: string;
   unit: string;
   value: unknown;
@@ -80,7 +82,7 @@ export default async function BudgetVersionPage({
     supabase.from("budget_cycles").select("id, name").eq("id", version.cycle_id).maybeSingle(),
     supabase
       .from("hypotheses")
-      .select("id, dimension_id, parameter_key, value, unit, status")
+      .select("id, dimension_id, parameter_key, value, unit, status, proposed_by")
       .eq("tenant_id", context.tenantId)
       .eq("version_id", versionId)
       .order("parameter_key"),
@@ -112,6 +114,23 @@ export default async function BudgetVersionPage({
 
   const hypotheses: HypothesisRow[] = hypothesesResult.data ?? [];
   const dimensions: DimensionRow[] = dimensionsResult.data ?? [];
+
+  // Les décisions des lignes déjà décidées, pour dire lesquelles l'ont été
+  // par leur propre auteur. La RLS (`decisions_select_scope`) borne la lecture
+  // au périmètre du lecteur, comme pour les hypothèses elles-mêmes.
+  const decidedIds = hypotheses.filter((row) => row.status !== "proposed").map((row) => row.id);
+  const decisionsResult =
+    decidedIds.length > 0
+      ? await supabase
+          .from("hypothesis_decisions")
+          .select("hypothesis_id, decided_by")
+          .eq("tenant_id", context.tenantId)
+          .in("hypothesis_id", decidedIds)
+      : { data: [], error: null };
+  if (decisionsResult.error) {
+    throw new Error("Impossible de charger les décisions de cette version.");
+  }
+  const selfDecided = selfDecidedHypotheses(hypotheses, decisionsResult.data ?? []);
   const grants: DimensionGrantRow[] = grantsResult.data ?? [];
   const notice = noticeFrom(queryParams);
   const cycleName = cycleResult.data?.name ?? "Cycle";
@@ -376,6 +395,11 @@ export default async function BudgetVersionPage({
                         >
                           {hypothesisStatusLabel(hypothesis.status)}
                         </span>
+                        {selfDecided.has(hypothesis.id) ? (
+                          <span className="state-tag" data-tone="vigilance">
+                            {SELF_DECIDED_LABEL}
+                          </span>
+                        ) : null}
                       </td>
                       <td>
                         <Link

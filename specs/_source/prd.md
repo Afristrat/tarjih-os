@@ -90,7 +90,8 @@ Le DAF et le DG consultent une version consolidée selon leurs droits. L’expor
 - un calcul échoue : aucune version partielle n’est publiée ;
 - une version approuvée est modifiée : création d’une nouvelle version, jamais réécriture de l’historique ;
 - un export est demandé par un responsable fonctionnel : seules ses données autorisées sont matérialisées ;
-- une suppression en masse est demandée par un CFO externalisé : aucune exécution sans approbation distincte du tenant.
+- une suppression en masse est demandée par un CFO externalisé : aucune exécution sans approbation distincte du tenant ;
+- l’auteur d’une hypothèse la décide lui-même : autorisé (un tenant peut n’avoir qu’un membre habilité), mais signalé « Décidée par son auteur » partout où la décision se lit, jamais silencieux (décision du 2026-09-16 : rendue visible plutôt qu’interdite).
 
 ## Hors périmètre de la première tranche exécutable
 
