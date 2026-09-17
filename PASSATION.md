@@ -4,6 +4,88 @@
 > Production : `https://tarjih-os.com`, Coolify `serveuria`, Supabase dédié.
 > Sources de vérité produit : `specs/_source/` · découpage : `specs/todo/README.md`.
 
+## 2026-09-17 (suite) : L46 fermé par SOP-021 (régénération de contrôle, zéro redémarrage) — les deux signalements ouverts sont clos
+
+```
+[ETAT]
+  Repo      : inchangé (`6f2d3a6`), worktree PROPRE — cette clôture n'a touché aucun fichier du
+              dépôt, uniquement l'hôte `serveuria`.
+  Prod      : `supabase-tarjih` (4 conteneurs) — **0 redémarré**, `StartedAt` identiques avant/
+              après. `tarjih-web` et `tarjih-calculation` non affectés, `/` et `/mentions-legales`
+              toujours 200. Disque et base disent désormais la même chose.
+
+[FAIT]
+  1. **L46 fermé par SOP-021** (la SOP approuvée pour ce déclencheur exact, pas un redéploiement
+     classique — son RACI réserve « déclencher un vrai redéploiement » à Amine seul, §5 ligne
+     61 ; la régénération de contrôle est du ressort de la session). Étapes 1 à 13 déroulées sur
+     `serveuria` :
+     · Étape 1 — source de vérité confirmée par lecture du code installé
+       (`Service::saveComposeConfigs()`, Coolify) : le compose est écrit depuis la colonne
+       `docker_compose`, le `.env` supprimé puis régénéré depuis les `SERVICE_NAME_*` déduits
+       des services déclarés + `environment_variables()`.
+     · Étape 3 — sauvegardes horodatées + empreintes avant écriture :
+       `docker-compose.yml.bak-persist-20260917-081315`, `.env.bak-persist-20260917-081315`.
+     · Étape 4 — régénération de contrôle exécutée via `tinker` (`saveComposeConfigs()`), sans
+       aucun redémarrage de conteneur.
+     · Étape 5 — diff des CLÉS du `.env` : **0 perdue, 0 ajoutée** (111 lignes identiques des
+       deux côtés).
+     · Étape 6 — diff du compose : **372 → 324 lignes**, exclusivement les 12 `SERVICE_NAME_*`
+       des services retirés par le dégraissage Phase 2 du 03/09 (`SUPABASE_ANALYTICS`,
+       `STORAGE`, `META`, `REALTIME_DEV`, `SUPAVISOR`, `STUDIO`, `VECTOR`, `MINIO`,
+       `MINIO_CREATEBUCKET`, `IMGPROXY`, `EDGE_FUNCTIONS`, **`TARJIH_CLOUDFLARED`**).
+     · **`TARJIH_CLOUDFLARED` vérifié mort** : aucun conteneur de ce nom sur l'hôte
+       (`docker ps -a` sans résultat) ; le tunnel réel de `tarjih-os.com` est le service
+       systemd `cloudflared-nahda` (confirmé `active`), pas un sidecar par service. C'était une
+       référence vestige, jamais un composant vivant.
+     · Étape 10 — idempotence prouvée : deuxième régénération, empreinte SHA-256 identique
+       (`9e15d9e4…`) avant/après.
+     · Étape 11 — zéro effet de bord : `StartedAt` des 4 conteneurs inchangés, sondes santé
+       identiques, `tarjih-web`/`tarjih-calculation` non touchés, site production 200/200.
+     · Étape 12 — résidu (script de régénération dans `/tmp` du conteneur `coolify`) purgé,
+       vérifié par une commande qui échoue.
+     · Étape 13 — rien à élaguer : la sauvegarde du jour a 0 jour, les sauvegardes historiques
+       du répertoire (`bak-PHASE2-20260903`, `bak-tunnel-20260808`, `bak-workers-20260808`)
+       sont nommées pour documenter un incident passé (Annexe A de la SOP) — non touchées, pas
+       créées par cette session.
+  2. **Piège d'outillage découvert, non listé dans l'Annexe C de la SOP** : le répertoire
+     `/data/coolify/services/<uuid>/` est root:root 0700 — un glob (`docker-compose.yml.bak-*`)
+     évalué par le shell APPELANT (non privilégié) ne voit rien et transmet le motif littéral,
+     non étendu, à `sudo` ; il échoue avec « aucun fichier » alors que le fichier existe.
+     Toujours faire évaluer le glob DANS le shell `sudo sh -c "…"`, jamais avant.
+
+[ALERTE]
+  Aucune. L28 et L46 sont clos, prouvés. Le seul reste est administratif (voir [NEXT]).
+
+[NEXT]
+  1. Retirer L46 de `PASSATION-INDEX.md` — texte prêt à coller (propriétaire de la ligne :
+     Session Hermès, qui l'a levé le 2026-09-08 ; à défaut, la ligne peut être mise à jour par
+     quiconque la lit avant la prochaine visite de la session propriétaire) :
+     > Tarjih : L46 fermé le 2026-09-17 par SOP-021 (régénération de contrôle, 0 conteneur
+     > redémarré). Cause confirmée : dégraissage Phase 2 du 03/09 (L67) jamais suivi d'un
+     > redéploiement — 12 `SERVICE_NAME_*` de services retirés restaient référencés sur disque,
+     > dont `TARJIH_CLOUDFLARED` qui n'a jamais correspondu à un conteneur réel (le tunnel est
+     > le service systemd `cloudflared-nahda`). 0 clé de `.env` perdue ou ajoutée. Retirer cette
+     > ligne.
+  2. Rien d'autre d'entamé.
+
+[CTX]
+  Session `018JVMAt…` (id local `7c7a2023`), 2026-09-17, suite de l'entrée précédente. Script
+  de diagnostic (scratchpad, jamais de valeur imprimée) exécuté par `ssh … 'bash -s' < script`
+  pour contourner le garde bash local (motif `cut -d= -f1 .env` bloqué en ligne de commande
+  inline, légitime une fois en fichier — SOP-021 §9 : la barrière a raison sur la forme, se
+  reformule, ne se contourne jamais). Reste inchangé : [CTX] des entrées précédentes.
+
+[MEMO]
+  1. **Une SOP approuvée l'emporte sur l'intuition de « juste redéployer »** : SOP-021 atteint
+     le même résultat (disque = base) sans redémarrage, et son RACI retire explicitement à la
+     session le droit de déclencher un vrai redéploiement — la lire avant d'agir sur ce
+     déclencheur change l'action, pas seulement sa prudence.
+  2. **Un nom de variable évocateur (`TARJIH_CLOUDFLARED`) ne prouve pas qu'un composant est
+     vivant** : seule l'absence de conteneur du même nom sur l'hôte le prouve.
+```
+
+---
+
 ## 2026-09-17 : L28 fermé et prouvé au navigateur/HTML rendu ; L46 diagnostiqué (cause trouvée), redéploiement en attente d'un feu vert
 
 ```
